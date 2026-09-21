@@ -16,7 +16,14 @@
     const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
   }
-  const fmtQ = (v) => (v == null ? '—' : (Math.round(v * 10) / 10).toString());
+  // one decimal, ties to even (the rounding used for the study's tables), so the site and the manuscript print the same values
+  const rhe1 = (v) => {
+    if (Math.abs(v * 4 - Math.round(v * 4)) > 1e-9) return Number(v.toFixed(1)); // not an exact quarter: no true tie
+    const x = v * 10, f = Math.floor(x + 1e-9);
+    return (Math.abs(x - f - 0.5) < 1e-9 ? (f % 2 === 0 ? f : f + 1) : Math.round(x)) / 10;
+  };
+  const fmtQ = (v) => (v == null ? '—' : rhe1(v).toString());
+  const fix1 = (v) => rhe1(v).toFixed(1);
 
   const RANKS = ['No rank', 'Instructor', 'Assistant professor', 'Associate professor', 'Full professor', 'Emeritus', 'Other title'];
   const PHENOS = ['AAU + Vizient + Blue Ridge', 'AAU + Blue Ridge', 'Vizient + Blue Ridge', 'Blue Ridge', 'AAU + Vizient', 'AAU', 'Vizient', 'None'];
@@ -25,11 +32,12 @@
   const TYPE_SHORT = ['NIH-ranked academic', 'AAU/Vizient academic', 'University-based', 'Corporate', 'Community-based', 'Military'];
   const ERAS = ['Legacy (on or before 2000)', '2001–2013', '2014–2020 (single accreditation)', '2021 or later'];
   const CHAIR_KEYS = [['A', 'Academic chair'], ['H', 'Hospital chair'], ['N', 'No chair identified']];
+  const MAXG = 25; // most programs compared side by side in the summary
   const HB = [[0, 0, 'h = 0'], [1, 4, 'h 1–4'], [5, 9, 'h 5–9'], [10, 19, 'h 10–19'], [20, 1e9, 'h ≥ 20']];
   const has = (tok, t) => tok.indexOf(t) >= 0;
   const ROLE_GROUPS = [
-    { id: 'pca', fig: 'Program chair (academic)', label: 'Program chair (academic)', test: (p) => p.chd === 1 && p.cht === 'A' },
-    { id: 'pch', fig: 'Program chair (hospital)', label: 'Program chair (hospital)', test: (p) => p.chd === 1 && p.cht === 'H' },
+    { id: 'pca', fig: 'Academic chair', label: 'Department chair (academic)', dc: true, test: (p) => p.chd === 1 && p.cht === 'A' },
+    { id: 'pch', fig: 'Hospital chair', label: 'Department chair (hospital)', dc: true, test: (p) => p.chd === 1 && p.cht === 'H' },
     { id: 'pd', fig: 'Program director', label: 'Program director', test: (p) => has(p.tok, 'Program Director') },
     { id: 'apd', fig: 'Assoc./asst. program director', label: 'Associate or assistant program director', test: (p) => has(p.tok, 'Associate Program Director') || has(p.tok, 'Assistant Program Director') },
     { id: 'vice', fig: 'Vice chair', label: 'Vice chair (incl. associate and executive)', test: (p) => p.tok.some((t) => t.indexOf('Vice Chair') >= 0) },
@@ -48,8 +56,9 @@
   const DEGS = [[1, 'MD (incl. MBBS/MBChB)'], [2, 'DO'], [4, 'PhD or other research doctorate'], [8, 'Non-physician doctorate only'], [16, 'Degree not verified']];
 
   let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [];
+  const PID = new Map(), RID = new Map();
   const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: '',
-    rank: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc' };
+    rank: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
   let matchP = [], matchF = [];
@@ -62,6 +71,7 @@
   function init() {
     META = DATA.meta; LK = DATA.lookups;
     decode();
+    P.forEach((p) => PID.set(p.id, p)); F.forEach((f) => RID.set(f.rid, f));
     $('#tagline').textContent = 'National census of ' + fmt(META.nRecords) + ' faculty-program records at all ' + META.nPrograms + ' ACGME-accredited emergency medicine residency programs · ' + META.asOf;
     $('#tagline-short').textContent = fmt(META.nRecords) + ' faculty records · ' + META.nPrograms + ' EM programs · ' + META.asOf;
     buildFilters();
@@ -142,13 +152,15 @@
     const cnt = (fn) => P.filter(fn).length;
     const html = [];
     const rc = RANKS.map((_, k) => F.filter((f) => f.rank === k).length);
-    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank or role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
-    html.push('<div class="fgroup"><h3>Leadership role</h3>' + checks('role', ROLE_GROUPS.map((g, k) => [g.id, g.label, F.filter((f) => f.roleMask & (1 << k)).length])) + '</div>');
+    const roleN = (id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return F.filter((f) => f.roleMask & (1 << k)).length; };
+    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank, a chair, or a role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
+    html.push('<div class="fgroup" id="fg-chair"><h3>Department chair</h3><p class="hint">Academic and hospital chair list the chairs themselves: one designated chair per program, and a few chairs lead more than one program.</p>' +
+      checks('role', [['pca', 'Academic chair', roleN('pca')], ['pch', 'Hospital chair', roleN('pch')]]) +
+      checks('chair', [['N', 'Programs with no chair identified', cnt((p) => p.chairKey === 'N')]]) + '</div>');
+    html.push('<div class="fgroup"><h3>Leadership role</h3>' + checks('role', ROLE_GROUPS.filter((g) => !g.dc).map((g) => [g.id, g.label, roleN(g.id)])) + '</div>');
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
-    html.push('<div class="fgroup"><h3>Program chair</h3><p class="hint">Programs by the type of chair who leads them. To select the chairs themselves, use Leadership role.</p>' +
-      checks('chair', CHAIR_KEYS.map(([k, l]) => [k, l, cnt((p) => p.chairKey === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Origin and accreditation</h3>' + tri('do', 'DO origin (moved from AOA)') +
       '<p class="fsub">ACGME accreditation era</p>' + checks('era', ERAS.map((t, k) => [k, t, cnt((p) => p.eraIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Location and ownership</h3><div class="row2"><label for="f-st" class="sr-only">State</label><select id="f-st" class="sel"><option value="">All states</option>' +
@@ -192,8 +204,8 @@
       if (e.target.id === 'f-hmin' || e.target.id === 'f-hmax') return;
       if (box) {
         const key = box.dataset.key;
-        S[key] = Array.from(box.querySelectorAll('input:checked')).map((i) => (['role', 'chair'].indexOf(key) >= 0 ? i.value : Number(i.value)));
-        if ((key === 'rank' || key === 'role') && S.view === 'programs' && S[key].length) { S.view = 'people'; toast('Showing people: rank and role select faculty'); return changed(true); }
+        S[key] = Array.from(document.querySelectorAll('#filter-groups .checks[data-key="' + key + '"] input:checked')).map((i) => (['role', 'chair'].indexOf(key) >= 0 ? i.value : Number(i.value)));
+        if ((key === 'rank' || key === 'role') && S.view === 'programs' && e.target.checked) { S.view = 'people'; toast(box.closest('#fg-chair') ? 'Showing people: the chairs themselves' : 'Showing people: rank and role select faculty'); return changed(true); }
         return changed();
       }
       if (e.target.id === 'f-st') S.st = e.target.value;
@@ -211,7 +223,7 @@
       const pr = e.target.closest('#h-presets button');
       if (pr) { S.hmin = pr.dataset.min; S.hmax = pr.dataset.max; changed(); }
     });
-    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); changed(); });
+    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si, pk: S.pk, pf: S.pf }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); changed(); });
     $('#filters-toggle').addEventListener('click', () => toggleFilters(true));
     $('#filters-close').addEventListener('click', () => toggleFilters(false));
     document.addEventListener('keydown', (e) => {
@@ -227,10 +239,18 @@
       changed();
     });
     $('#tbody').addEventListener('click', (e) => {
-      if (e.target.closest('a')) return; // links handle themselves
+      if (e.target.closest('a') || e.target.closest('.sel-col')) return; // links and row checkboxes handle themselves
       const tr = e.target.closest('tr[data-href]'); if (tr) go(tr.dataset.href);
     });
-    $('#tbody').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.target.closest('a')) { const tr = e.target.closest('tr[data-href]'); if (tr) go(tr.dataset.href); } });
+    $('#tbody').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.target.closest('a') && !e.target.closest('.sel-col')) { const tr = e.target.closest('tr[data-href]'); if (tr) go(tr.dataset.href); } });
+    $('#tbody').addEventListener('change', (e) => { const i = e.target.closest('input.pick'); if (i) togglePick([i.value], i.checked); });
+    $('#thead').addEventListener('change', (e) => { if (e.target.id === 'pick-all') togglePick(curRows.slice(0, shown).map(rowId), e.target.checked); });
+    const selClick = (e) => {
+      const rm = e.target.closest('button[data-unpick]'); if (rm) return togglePick([rm.dataset.unpick], false);
+      if (e.target.closest('[data-sel-clear]')) return togglePick(picks().slice(), false);
+      if (e.target.closest('[data-sel-export]')) { const sel = pickedRows(); return S.view === 'people' ? exportPeople(sel, 'em-census-selected-people') : exportPrograms(sel, 'em-census-selected-programs'); }
+    };
+    $('#selbar').addEventListener('click', selClick); $('#sum-sel').addEventListener('click', selClick);
     document.addEventListener('click', (e) => {
       const a = e.target.closest('a[href^="#/program/"], a[href^="#/person/"], a[href="#/about"]');
       if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) inApp = true;
@@ -263,6 +283,7 @@
     const u = new URLSearchParams();
     STR.forEach((k) => { if (S[k] !== DEFAULT[k] && S[k] !== '') u.set(k, S[k]); });
     ARR.forEach((k) => { if (S[k].length) u.set(k, S[k].join('.')); });
+    if (S.pk.length) u.set('pk', S.pk.join('.')); if (S.pf.length) u.set('pf', S.pf.join('.'));
     if (S.dp !== 1) u.set('dp', S.dp); if (S.df !== 1) u.set('df', S.df);
     const qs = u.toString();
     return '#/' + S.view + (qs ? '?' + qs : '');
@@ -274,6 +295,12 @@
     ARR.forEach((k) => { if (u.get(k)) s[k] = u.get(k).split('.').filter((x) => x !== '').map((x) => (['role', 'chair'].indexOf(k) >= 0 ? x : Number(x))).filter((x) => x === x); });
     s.dp = u.get('dp') === '-1' ? -1 : 1; s.df = u.get('df') === '-1' ? -1 : 1;
     s.role = s.role.filter((id) => ROLE_GROUPS.some((g) => g.id === id));
+    // links made before the chair filter selected the chairs themselves (chair=A or H)
+    const oldChair = s.chair.filter((v) => v === 'A' || v === 'H');
+    if (oldChair.length) { oldChair.forEach((v) => { const id = v === 'A' ? 'pca' : 'pch'; if (s.role.indexOf(id) < 0) s.role.push(id); }); s.view = 'people'; }
+    s.chair = s.chair.filter((v) => v === 'N');
+    s.pk = uniq((u.get('pk') || '').split('.').filter((id) => PID.has(id)));
+    s.pf = uniq((u.get('pf') || '').split('.').filter((id) => RID.has(id)));
     if (!GROUP_DIMS.some((d) => d[0] === s.g)) s.g = '';
     if (s.si !== 'gs') s.si = 'sc';
     return s;
@@ -286,14 +313,15 @@
     if (m) {
       navDepth = 0;
       if (h === lastList && !$('#overlay').hidden) { closeOverlay(true); return; }
-      S = parseList(m[1], m[2]); lastList = listHash(); closeOverlay(true); shown = PAGE; syncFilterUI(); render(); return;
+      S = parseList(m[1], m[2]); lastList = listHash(); if (lastList !== h) history.replaceState(null, '', lastList);
+      closeOverlay(true); shown = PAGE; syncFilterUI(); render(); return;
     }
     if (wasInApp) navDepth++;
     if (!lastList) { S = parseList('programs', ''); lastList = listHash(); syncFilterUI(); render(); }
     m = h.match(/^#\/program\/(\d+)$/);
-    if (m) { const p = P.find((x) => x.id === m[1]); return p ? openOverlay(programHTML(p), programActions(p), p.name) : notFound(); }
+    if (m) { const p = PID.get(m[1]); return p ? openOverlay(programHTML(p), programActions(p), p.name) : notFound(); }
     m = h.match(/^#\/person\/(.+)$/);
-    if (m) { const rid = decodeURIComponent(m[1]); const f = F.find((x) => x.rid === rid); return f ? openOverlay(personHTML(f), personActions(f), f.name) : notFound(); }
+    if (m) { const rid = decodeURIComponent(m[1]); const f = RID.get(rid); return f ? openOverlay(personHTML(f), personActions(f), f.name) : notFound(); }
     if (h === '#/about') return openOverlay(aboutHTML(), '', 'About the data');
     history.replaceState(null, '', '#/programs'); route();
   }
@@ -359,7 +387,7 @@
     if (S.br) out.push(['br', 'Blue Ridge ranked: ' + tl[S.br]]);
     S.pheno.forEach((v) => out.push(['pheno:' + v, 'Phenotype: ' + PHENOS[v]]));
     S.type.forEach((v) => out.push(['type:' + v, TYPES[v]]));
-    S.chair.forEach((v) => out.push(['chair:' + v, 'Program led by: ' + (CHAIR_KEYS.find((c) => c[0] === v) || [, v])[1].toLowerCase()]));
+    S.chair.forEach((v) => out.push(['chair:' + v, v === 'N' ? 'Programs with no chair identified' : 'Program led by: ' + (CHAIR_KEYS.find((c) => c[0] === v) || [, v])[1].toLowerCase()]));
     if (S.do) out.push(['do', 'DO origin: ' + tl[S.do]]);
     S.era.forEach((v) => out.push(['era:' + v, 'Accredited: ' + ERAS[v]]));
     if (S.st) out.push(['st', 'State: ' + S.st]);
@@ -388,7 +416,7 @@
     { k: 'aau', t: 'AAU', cls: 'ctr', dir: 'desc' },
     { k: 'viz', t: 'Vizient', cls: 'ctr', dir: 'desc' },
     { k: 'br', t: 'Blue Ridge', cls: 'ctr' },
-    { k: 'chair', t: 'Chair', cls: 'col-opt' },
+    { k: 'chair', t: 'Dept. chair', cls: 'col-opt' },
     { k: 'n', t: 'Faculty', cls: 'num', dir: 'desc' },
     { k: 'norank', t: 'No rank', cls: 'num col-opt', dir: 'desc' },
     { k: 'medsc', t: 'Median Scopus h', cls: 'num', dir: 'desc' },
@@ -433,7 +461,7 @@
     const people = S.view === 'people';
     const chips = activeFilters();
     $('#chips').innerHTML = chips.map(([k, l]) => '<span class="chip">' + esc(l) + '<button type="button" data-rm="' + esc(k) + '" aria-label="Remove filter ' + esc(l) + '">&times;</button></span>').join('') +
-      (!people && chips.some(([k]) => /^(rank|role|deg|h|hp)/.test(k)) ? '<span class="note">Rank, role, degree, and h-index filters apply in the People view.</span>' : '');
+      (!people && chips.some(([k]) => /^(rank|role|deg|h|hp)/.test(k)) ? '<span class="note">Rank, department chair, leadership role, degree, and h-index filters select faculty, so they apply in the People view.</span>' : '');
     const qt = tokens(), notes = qt.length ? P.filter((p) => p.searchNote && p.keys.some((k) => qt.indexOf(k) >= 0)) : [];
     $('#search-note').hidden = !notes.length;
     $('#search-note').innerHTML = notes.map((p) => esc(p.searchNote) + ' <a href="#/program/' + p.id + '">Open the ' + esc(p.name) + ' program</a>.').join('<br>');
@@ -445,7 +473,7 @@
       $('#result-count').textContent = fmt(rows.length) + (rows.length === 1 ? ' faculty record' : ' faculty records');
       $('#result-summary').textContent = rows.length ? 'Median Scopus h ' + fmtQ(quantile(sc, 0.5)) + ' (IQR ' + fmtQ(quantile(sc, 0.25)) + '–' + fmtQ(quantile(sc, 0.75)) + ') · ' + pct(nr, rows.length) + ' no rank · at ' + fmt(np.size) + (np.size === 1 ? ' program' : ' programs') : '';
       sortPeople(rows); $('#table').dataset.rows = rows.length; renderHead(FCOLS, S.sf, S.df); curRows = rows;
-      $('#table-note').innerHTML = 'Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study. Blue Ridge shows the rank of the faculty member’s medical school in the FY2025 NIH ranking of EM departments.';
+      $('#table-note').innerHTML = 'Tick the box beside a person to limit the summary below to the people you pick. Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study. Blue Ridge shows the rank of the faculty member’s medical school in the FY2025 NIH ranking of EM departments.';
     } else {
       const rows = matchP.map((k) => P[k]);
       const uf = new Set(); rows.forEach((p) => p.fac.forEach((k) => uf.add(k))); const nfac = uf.size;
@@ -455,14 +483,14 @@
       const toks = tokens(), pinned = toks.length ? rows.filter((p) => p.keys && p.keys.some((k) => toks.indexOf(k) >= 0)) : [];
       if (pinned.length) { const pin = new Set(pinned); rows.splice(0, rows.length, ...pinned, ...rows.filter((p) => !pin.has(p))); }
       renderHead(PCOLS, S.sp, S.dp); curRows = rows;
-      $('#table-note').innerHTML = 'Faculty counts are faculty-program records linked to each program. Blue Ridge shows the best (lowest) FY2025 NIH rank among the program’s medical schools. Accredited is the year of ACGME accreditation; ≤2000 means accredited on or before 2000.';
+      $('#table-note').innerHTML = 'Tick the box beside a program to limit the summary below to its faculty; tick two or more to compare them. Faculty counts are faculty-program records linked to each program. Blue Ridge shows the best (lowest) FY2025 NIH rank among the program’s medical schools. Accredited is the year of ACGME accreditation; ≤2000 means accredited on or before 2000.';
     }
     renderTable();
     renderSummary();
   }
   let curRows = [];
   function renderHead(cols, key, dir) {
-    const html = '<tr>' + cols.map((c) => {
+    const html = '<tr><th scope="col" class="sel-col"><label class="pick-hit" title="Select all rows shown"><input type="checkbox" id="pick-all" aria-label="Select all rows shown, to limit the summary to them"></label></th>' + cols.map((c) => {
       const on = c.k === key, arrow = on ? (dir === 1 ? '▲' : '▼') : '↕';
       return '<th scope="col" class="' + c.cls + '"' + (on ? ' aria-sort="' + (dir === 1 ? 'ascending' : 'descending') + '"' : '') + '><button type="button" data-sort="' + c.k + '"' + (c.dir ? ' data-dir="' + c.dir + '"' : '') + '>' + esc(c.t) + '<span class="arrow" aria-hidden="true">' + arrow + '</span></button></th>';
     }).join('') + '</tr>';
@@ -475,7 +503,9 @@
     const more = curRows.length - shown;
     $('#show-more').hidden = more <= 0;
     $('#show-more').textContent = 'Show ' + fmt(Math.min(more, PAGE * 2)) + ' more (' + fmt(more) + ' not shown)';
+    syncPickUI();
   }
+  const pickCell = (id, name) => '<td class="sel-col"><label class="pick-hit"><input type="checkbox" class="pick" value="' + esc(id) + '" aria-label="Select ' + esc(name) + ' for the summary"></label></td>';
   const yes = (v) => (v ? '<span class="yes">Yes</span>' : '<span class="dash">—</span>');
   const brCell = (r) => (r == null ? '<span class="dash">—</span>' : '#' + r);
   function hCell(v, basis, src) {
@@ -485,7 +515,7 @@
   }
   function programRow(p) {
     const acc = p.accCensored ? '≤2000' : (p.accYear == null ? '—' : p.accYear + (p.accApprox ? '*' : ''));
-    return '<tr data-href="#/program/' + p.id + '" tabindex="0"><td class="w-name"><a class="rowlink" href="#/program/' + p.id + '">' + esc(p.name) + '</a><span class="sub">' + esc(p.city) + ', ' + esc(p.state) + (p.site ? ' · ' + esc(p.site) : '') + '</span></td>' +
+    return '<tr data-href="#/program/' + p.id + '" tabindex="0">' + pickCell(p.id, p.name) + '<td class="w-name"><a class="rowlink" href="#/program/' + p.id + '">' + esc(p.name) + '</a><span class="sub">' + esc(p.city) + ', ' + esc(p.state) + (p.site ? ' · ' + esc(p.site) : '') + '</span></td>' +
       '<td class="col-opt w-type">' + esc(TYPE_SHORT[p.typeIdx]) + '</td><td class="ctr">' + yes(p.aau) + '</td><td class="ctr">' + yes(p.viz) + '</td><td class="ctr">' + brCell(p.brBest) + '</td>' +
       '<td class="col-opt w-chair">' + (p.chair == null ? '<span class="dash">None identified</span>' : esc(p.chairKey === 'A' ? 'Academic' : 'Hospital') + '<span class="sub">' + esc(p.chairName) + '</span>') + '</td>' +
       '<td class="num">' + fmt(p.n) + '</td><td class="num col-opt">' + pct(p.rankN[0], p.n, 0) + '</td><td class="num">' + fmtQ(p.medSc) + '</td><td class="num col-opt">' + acc + '</td><td class="ctr col-opt">' + (p.doOrigin ? '<span class="pill gold">DO</span>' : '<span class="dash">—</span>') + '</td></tr>';
@@ -493,7 +523,7 @@
   function personRow(f) {
     const pr = f.progs.map((k) => P[k]);
     const prog = pr.length ? '<a class="plink" href="#/program/' + pr[0].id + '">' + esc(pr[0].name) + '</a>' + (pr.length > 1 ? '<span class="sub">+' + (pr.length - 1) + ' more</span>' : '<span class="sub">' + esc(pr[0].city) + ', ' + esc(pr[0].state) + '</span>') : '';
-    return '<tr data-href="#/person/' + encodeURIComponent(f.rid) + '" tabindex="0"><td class="w-name"><a class="rowlink" href="#/person/' + encodeURIComponent(f.rid) + '">' + esc(f.name) + '</a>' + (f.cred ? '<span class="sub">' + esc(f.cred) + '</span>' : '') + '</td>' +
+    return '<tr data-href="#/person/' + encodeURIComponent(f.rid) + '" tabindex="0">' + pickCell(f.rid, f.name) + '<td class="w-name"><a class="rowlink" href="#/person/' + encodeURIComponent(f.rid) + '">' + esc(f.name) + '</a>' + (f.cred ? '<span class="sub">' + esc(f.cred) + '</span>' : '') + '</td>' +
       '<td class="w-prog">' + prog + '</td><td>' + esc(RANKS[f.rank]) + '</td><td class="col-opt">' + esc(roleText(f)) + '</td>' +
       '<td class="num">' + hCell(f.sc, f.scb, 'sc') + '</td><td class="num">' + hCell(f.gs, f.gsb, 'gs') + '</td>' +
       '<td class="ctr">' + yes(f.aau) + '</td><td class="ctr">' + (f.viz === 1 ? '<span class="yes">Yes</span>' : f.viz === 2 ? '<span class="dash" title="Unresolved">?</span>' : '<span class="dash">—</span>') + '</td><td class="ctr">' + brCell(f.brr) + '</td></tr>';
@@ -575,7 +605,7 @@
         (p.formerName ? '<span class="sub">Formerly ' + esc(p.formerName) + '</span>' : '') + (p.originBasis ? '<span class="sub">Basis: ' + esc(p.originBasis) + '</span>' : '')) +
       fact('Program length', p.length ? p.length + ' years' : '') + fact('Affiliation', esc(p.affil)) + fact('NRMP code', esc(p.nrmp)) +
       '</dl></div>' +
-      '<div class="card"><h3>Leadership</h3><dl class="facts">' + fact('Program chair', chairBlock) + fact('Program director', pdBlock) +
+      '<div class="card"><h3>Leadership</h3><dl class="facts">' + fact('Department chair', chairBlock) + fact('Program director', pdBlock) +
       (p.chairSecondary ? fact('Other chairs', esc(p.chairSecondary)) : '') + '</dl></div>' +
       '<div class="card"><h3>Hospital ownership and ED staffing</h3><dl class="facts">' +
       fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '')) + fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : '')) +
@@ -612,18 +642,18 @@
     const sc = hDetail(f.sc, f.scb, META.scBasis[f.scb], '', '') + scIds.map((id, k) => '<span class="sub">' + link('https://www.scopus.com/authid/detail.uri?authorId=' + id, scIds.length > 1 ? 'Scopus author profile ' + (k + 1) : 'Scopus author profile') + '</span>').join('');
     const gs = hDetail(f.gs, f.gsb, META.gsBasis[f.gsb], f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', 'Google Scholar profile');
     const chairFor = f.chfor.map((k) => P[k]);
-    const chairTxt = f.chd === 1 ? 'Designated program chair' + (chairFor.length ? ' of ' + chairFor.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a>').join(', ') : '') +
+    const chairTxt = f.chd === 1 ? 'Designated department chair' + (chairFor.length ? ' of ' + chairFor.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a>').join(', ') : '') +
       '<span class="sub">' + esc(f.cht === 'A' ? 'Academic chair' : 'Hospital chair') + ' · ' + esc(f.chpos) + '</span>' + (f.chtitle ? '<span class="sub">Listed title: “' + esc(f.chtitle) + '”</span>' : '') +
       '<span class="sub">Evidence: ' + esc({ H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '—') + (f.chsrc ? ' · ' + srcHTML(f.chsrc, 'source') : '') + '</span>'
       : (f.chd === 2 ? 'Secondary chair (other site or parallel role)' + '<span class="sub">' + esc(f.cht === 'A' ? 'Academic' : 'Hospital') + ' · ' + esc(f.chpos) + '</span>' : '');
     const issue = REPO + '/issues/new?title=' + encodeURIComponent('Correction: ' + f.name + ' (' + f.rid + ')') + '&body=' + encodeURIComponent('Record ID: ' + f.rid + '\nName: ' + f.name + '\nProgram: ' + pr.map((x) => x.name).join('; ') + '\n\nWhat should change, and a source for it:\n');
     return '<p class="d-kicker">Faculty record</p><h2 class="d-title" id="panel-title">' + esc(f.name) + '</h2><p class="d-sub">' + esc(f.cred || f.deg) + '</p>' +
-      '<div class="pills d-pills"><span class="pill on">' + esc(RANKS[f.rank]) + '</span>' + (f.chd === 1 ? '<span class="pill gold">Program chair</span>' : '') + (has(f.tok, 'Program Director') ? '<span class="pill gold">Program director</span>' : '') + '</div>' +
+      '<div class="pills d-pills"><span class="pill on">' + esc(RANKS[f.rank]) + '</span>' + (f.chd === 1 ? '<span class="pill gold">Department chair</span>' : '') + (has(f.tok, 'Program Director') ? '<span class="pill gold">Program director</span>' : '') + '</div>' +
       '<div class="stats three">' + stat(hVal(f.sc, f.scb), 'Scopus h-index') + stat(hVal(f.gs, f.gsb), 'Google Scholar h-index') + stat(f.brr != null ? '#' + f.brr : '—', 'Blue Ridge rank of institution (FY2025)') + '</div>' +
       '<div class="card"><h3>Appointment</h3><dl class="facts">' +
       fact('Program', pr.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a><span class="sub">' + esc(x.city) + ', ' + esc(x.state) + '</span>').join('')) +
       fact('Institution', esc(f.inst)) + fact('Academic rank', esc(RANKS[f.rank]) + (f.title && norm(f.title) !== norm(RANKS[f.rank]) && f.title !== 'No Rank' ? '<span class="sub">Listed title: ' + esc(f.title) + '</span>' : '')) +
-      fact('Department role', esc(roleText(f))) + fact('Program chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
+      fact('Department role', esc(roleText(f))) + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
       '</dl></div>' +
       '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + '</dl><p class="note">Values collected ' + esc(META.hDates) + '.</p></div>' +
       '<div class="card"><h3>Institutional markers</h3><dl class="facts">' + fact('AAU', f.aau ? 'Yes' + (f.aaum ? '<span class="sub">' + esc(f.aaum) + '</span>' : '') : 'No') +
@@ -642,8 +672,8 @@
     return '<p class="d-kicker">About</p><h2 class="d-title" id="panel-title">About the data</h2><div class="prose">' +
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
       ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
-      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank and leadership role select faculty, so choosing one lists the matching people. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
-      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping. In the Programs view the summary covers all faculty at the programs shown.</p>' +
+      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
+      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
       '<h3>Definitions</h3><dl>' +
       '<dt>Academic rank</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor. No rank means none was published.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
@@ -652,8 +682,8 @@
       '<dt>Blue Ridge</dt><dd>The medical school appears in the Blue Ridge Institute for Medical Research (BRIMR) fiscal-year 2025 ranking of NIH funding to departments of emergency medicine. Ranks and dollars are BRIMR’s.</dd>' +
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
       '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-marker academic</em>: any of the three markers, split into NIH-ranked (Blue Ridge) and AAU or Vizient. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. <em>Community-based</em>: everything else (non-profit or public).</dd>' +
-      '<dt>Program chair</dt><dd>One chair per program. An <em>academic chair</em> heads a medical-school EM department, division, or section (including regional campuses). A <em>hospital chair</em> heads a hospital or health-system emergency department: department chair, chief, system chair, or, when none of those was identified, the ED medical director. Where a program listed both, the academic chair was designated. Evidence is graded high, medium, or low.</dd>' +
-      '<dt>Leadership role</dt><dd>Titles as listed by each program. <em>Program chair (academic or hospital)</em> is the one designated chair per program, defined below. <em>Program director</em> is the residency program director; <em>Student clerkship director</em> is the medical student clerkship director (associate and assistant clerkship directors are listed separately); <em>Vice chair</em> includes associate and executive vice chairs. A faculty member can hold more than one title.</dd>' +
+      '<dt>Department chair</dt><dd>One designated chair per program. An <em>academic chair</em> heads a medical-school EM department, division, or section (including regional campuses). A <em>hospital chair</em> heads a hospital or health-system emergency department: department chair, chief, system chair, or, when none of those was identified, the ED medical director. Where a program listed both, the academic chair was designated. Evidence is graded high, medium, or low.</dd>' +
+      '<dt>Leadership role</dt><dd>Titles as listed by each program. Department chairs are selected under Department chair, defined below. <em>Program director</em> is the residency program director; <em>Student clerkship director</em> is the medical student clerkship director (associate and assistant clerkship directors are listed separately); <em>Vice chair</em> includes associate and executive vice chairs. A faculty member can hold more than one title.</dd>' +
       '<dt>Program director</dt><dd>Faculty listed with the Program Director title.</dd>' +
       '<dt>ACGME accreditation</dt><dd>The effective date of the earliest record conferring accredited or pre-accredited status. Published histories begin in academic year 2000–2001, so older programs are shown as on or before 2000. It marks entry into ACGME accreditation, not when training began.</dd>' +
       '<dt>DO origin</dt><dd>The program held American Osteopathic Association accreditation before the single accreditation system (2014–2020) and obtained ACGME accreditation during it.</dd>' +
@@ -664,8 +694,37 @@
   }
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-export-all-inline]'); if (b) (b.dataset.exportAllInline === 'people' ? exportPeople(F, 'em-census-all-people') : exportPrograms(P, 'em-census-all-programs')); });
 
+  /* ---------------------------------------------------------------- row selection (limits the summary to ticked rows) */
+  const rowId = (r) => (S.view === 'people' ? r.rid : r.id);
+  const picks = () => (S.view === 'people' ? S.pf : S.pk);
+  function pickedRows() { return S.view === 'people' ? S.pf.map((id) => RID.get(id)).filter(Boolean) : S.pk.map((id) => PID.get(id)).filter(Boolean); }
+  function togglePick(ids, on) {
+    const key = S.view === 'people' ? 'pf' : 'pk', set = new Set(S[key]), cur = S[key].slice();
+    ids.forEach((id) => { if (on && !set.has(id)) { set.add(id); cur.push(id); } else if (!on) set.delete(id); });
+    S[key] = cur.filter((id) => set.has(id));
+    const h = listHash(); lastList = h; history.replaceState(null, '', h);
+    syncPickUI(); renderSummary();
+  }
+  function syncPickUI() {
+    const set = new Set(picks()), people = S.view === 'people';
+    document.querySelectorAll('#tbody input.pick').forEach((i) => { const on = set.has(i.value); i.checked = on; i.closest('tr').classList.toggle('picked', on); });
+    const all = $('#pick-all');
+    if (all) {
+      const ids = curRows.slice(0, shown).map(rowId), k = ids.filter((id) => set.has(id)).length;
+      all.checked = k > 0 && k === ids.length; all.indeterminate = k > 0 && k < ids.length; all.disabled = !ids.length;
+    }
+    const sel = pickedRows(), unit = people ? (sel.length === 1 ? 'person' : 'people') : (sel.length === 1 ? 'program' : 'programs');
+    $('#selbar').hidden = !sel.length; $('#sum-sel').hidden = !sel.length;
+    if (!sel.length) return;
+    const MAXCHIPS = 12, where = (r) => (people ? (r.progs.length ? P[r.progs[0]].name : '') : r.city + ', ' + r.state);
+    $('#sel-text').textContent = fmt(sel.length) + ' ' + unit + ' selected. The summary below covers only ' + (sel.length === 1 ? (people ? 'this person' : 'this program') : 'these ' + unit) + '.';
+    $('#sel-items').innerHTML = sel.slice(0, MAXCHIPS).map((r) => '<span class="sel-item" title="' + esc(r.name + (where(r) ? ' · ' + where(r) : '')) + '"><span class="sel-name">' + esc(r.name) + '</span><button type="button" data-unpick="' + esc(rowId(r)) + '" aria-label="Remove ' + esc(r.name) + ' from the selection">&times;</button></span>').join('') +
+      (sel.length > MAXCHIPS ? '<span class="sel-more">+' + fmt(sel.length - MAXCHIPS) + ' more</span>' : '');
+    $('#sum-sel').innerHTML = 'Limited to the ' + fmt(sel.length) + ' ' + unit + ' you ticked. <button type="button" class="link-btn" data-sel-clear>Clear selection</button>';
+  }
+
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
-  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['role', 'Leadership role'], ['type', 'Program type'],
+  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
     ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
@@ -675,6 +734,7 @@
   };
   let SUM = null;
   function autoGroup() {
+    if (S.view === 'programs' && S.pk.length >= 2 && S.pk.length <= MAXG) return 'program';
     if (S.rank.length >= 2) return 'rank';
     if (S.role.length >= 2) return 'role';
     if (S.type.length >= 2) return 'type';
@@ -683,12 +743,12 @@
     return 'rank';
   }
   function summaryRows() {
-    if (S.view === 'people') return matchF.map((k) => F[k]);
-    const seen = new Set(), out = [];
-    matchP.forEach((pi) => P[pi].fac.forEach((k) => { if (!seen.has(k)) { seen.add(k); out.push(F[k]); } }));
+    if (S.view === 'people') return S.pf.length ? pickedRows() : matchF.map((k) => F[k]);
+    const seen = new Set(), out = [], progs = S.pk.length ? pickedRows().map((p) => p.i) : matchP;
+    progs.forEach((pi) => P[pi].fac.forEach((k) => { if (!seen.has(k)) { seen.add(k); out.push(F[k]); } }));
     return out;
   }
-  function groupDefs(dim) {
+  function groupDefs(dim, rows) {
     const first = (f) => P[f.progs[0]];
     const pick = (sel, all) => (sel.length ? sel.slice().sort((a, b) => a - b) : all);
     if (dim === 'rank') return pick(S.rank, RANKS.map((_, k) => k)).map((k) => ({ label: RANKS[k], test: (f) => f.rank === k }));
@@ -703,6 +763,21 @@
     }
     if (dim === 'era') return pick(S.era, ERAS.map((_, k) => k)).map((k) => ({ label: ERAS[k], test: (f) => first(f).eraIdx === k }));
     if (dim === 'origin') { const dO = (f) => f.progs.some((pi) => P[pi].doOrigin); return [{ label: 'DO-origin program', test: (f) => dO(f) }, { label: 'Allopathic-origin program', test: (f) => !dO(f) }]; }
+    if (dim === 'program') {
+      const picked = S.view === 'programs' && S.pk.length > 0;
+      let ids;
+      if (S.view === 'programs') ids = picked ? pickedRows().map((p) => p.i) : matchP.slice();
+      else { const seen = new Set(); rows.forEach((f) => f.progs.forEach((pi) => seen.add(pi))); ids = Array.from(seen); }
+      const total = ids.length;
+      if (total > MAXG) {
+        const n = new Map(); rows.forEach((f) => f.progs.forEach((pi) => n.set(pi, (n.get(pi) || 0) + 1)));
+        ids = ids.slice().sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0) || collator.compare(P[a].name, P[b].name)).slice(0, MAXG);
+      }
+      if (!picked) ids.sort((a, b) => collator.compare(P[a].name, P[b].name));
+      const out = ids.map((pi) => ({ label: P[pi].name, fig: P[pi].name, csv: P[pi].name + ' (' + P[pi].city + ', ' + P[pi].state + '; ACGME ' + P[pi].id + ')', test: (f) => f.progs.indexOf(pi) >= 0 }));
+      out.capped = total > MAXG ? total : 0;
+      return out;
+    }
     return [];
   }
   function hStats(vals) {
@@ -712,6 +787,11 @@
     return { n, mean, sd, med: quantile(vals, 0.5), q1: quantile(vals, 0.25), q3: quantile(vals, 0.75), p5: quantile(vals, 0.05), p95: quantile(vals, 0.95), zero: vals.filter((v) => v === 0).length / n };
   }
   function selectionText() {
+    const sel = pickedRows();
+    if (sel.length) {
+      const names = sel.slice(0, 4).map((r) => r.name).join('; ') + (sel.length > 4 ? '; and ' + fmt(sel.length - 4) + ' more' : '');
+      return S.view === 'people' ? 'Selected: ' + names : 'Faculty at ' + fmt(sel.length) + ' selected ' + (sel.length === 1 ? 'program' : 'programs') + ': ' + names;
+    }
     const personOnly = /^(rank|role|deg|h|hp)/;
     const chips = activeFilters().filter(([k]) => S.view === 'people' || !personOnly.test(k)).map(([, l]) => l);
     if (S.q.trim()) chips.unshift('Search “' + S.q.trim() + '”');
@@ -724,18 +804,20 @@
     const dimLabel = (GROUP_DIMS.find((d) => d[0] === dim) || ['', ''])[1];
     const num = (a, b) => a - b;
     const groups = [{ label: 'All selected', fig: 'All selected', csv: 'All selected', all: true, st: hStats(rows.map((f) => f[key]).sort(num)) }];
-    if (dim !== 'none' && rows.length) groupDefs(dim).forEach((g) => { groups.push({ label: g.label, fig: g.fig || g.label, csv: g.csv || g.label, st: hStats(rows.filter(g.test).map((f) => f[key]).sort(num)) }); });
+    const defs = dim !== 'none' && rows.length ? groupDefs(dim, rows) : [];
+    defs.forEach((g) => { groups.push({ label: g.label, fig: g.fig || g.label, csv: g.csv || g.label, st: hStats(rows.filter(g.test).map((f) => f[key]).sort(num)) }); });
     if (groups.length === 2 && groups[1].st && groups[0].st && groups[1].st.n === groups[0].st.n) groups.pop();
     const broke = groups.length > 1;
     SUM = { groups, dim, dimLabel, key, idxName, title: idxName + (broke ? ' by ' + dimLabel.toLowerCase() : ''), sub: selectionText(), n: rows.length };
     const autoOpt = $('#sum-group option[value=""]'); if (autoOpt) autoOpt.textContent = 'Auto (' + (GROUP_DIMS.find((d) => d[0] === autoGroup()) || ['', ''])[1].toLowerCase() + ')';
     $('#sum-group').value = S.g; $('#sum-index').value = key;
     $('#sum-caption').textContent = SUM.title + ': ' + fmt(rows.length) + ' faculty records (' + SUM.sub + ')';
-    const f1 = (v) => (v == null ? '—' : v.toFixed(1));
+    const f1 = (v) => (v == null ? '—' : fix1(v));
     $('#sum-tbody').innerHTML = groups.map((g) => '<tr' + (g.all ? ' class="all"' : '') + '><th scope="row">' + esc(g.label) + '</th><td class="num">' + fmt(g.st ? g.st.n : 0) + '</td><td class="num">' + (g.st ? f1(g.st.mean) : '—') +
       '</td><td class="num">' + (g.st ? fmtQ(g.st.med) : '—') + '</td><td class="num">' + (g.st ? fmtQ(g.st.q1) + '–' + fmtQ(g.st.q3) : '—') + '</td></tr>').join('');
     $('#sum-thead').innerHTML = '<tr><th scope="col">Group</th><th scope="col" class="num">n</th><th scope="col" class="num">Mean h</th><th scope="col" class="num">Median h</th><th scope="col" class="num">IQR</th></tr>';
     $('#sum-note').textContent = (dim === 'role' && broke ? 'Leadership groups can overlap: a faculty member with two titles counts in both. ' : '') +
+      (dim === 'program' && broke ? 'Faculty listed by more than one of these programs count in each. ' + (defs.capped ? 'Showing the ' + MAXG + ' programs with the most faculty records, of ' + fmt(defs.capped) + '; tick programs in the table to choose which ones are compared. ' : '') : '') +
       (dim === 'type' || dim === 'era' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
       'IQR is the 25th to 75th percentile. Faculty without a matched ' + (key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0, as in the study.';
     const has0 = rows.length > 0;
@@ -751,13 +833,25 @@
   }
   function niceStep(hi) { const steps = [1, 2, 5, 10, 20, 25, 50, 100]; for (let k = 0; k < steps.length; k++) if (hi / steps[k] <= 6) return steps[k]; return 200; }
   function clip(t, n) { t = String(t); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+  function twoLines(t, per) {
+    t = String(t);
+    if (t.length <= per) return [t];
+    let cut = t.lastIndexOf(' ', per); if (cut < per * 0.5) cut = per;
+    const a = t.slice(0, cut).trim(), b = t.slice(cut).trim();
+    if (b.length <= per) return [a, b];
+    let tail = b.slice(b.length - per + 1); const sp = tail.indexOf(' ');
+    if (b.charAt(b.length - per) !== ' ' && sp > 0 && sp < per / 2) tail = tail.slice(sp + 1);
+    return [a, '…' + tail.replace(/^[\s\-–—\/,;:]+/, '').trim()];
+  }
   function svgFigure(sum, pal, W) {
-    const compact = W < 640, L = compact ? 132 : 250, R = compact ? 12 : 172, rowH = compact ? 40 : 44;
-    const sub = fmt(sum.n) + ' faculty records · ' + sum.sub, per = compact ? 52 : 118;
+    const compact = W < 640, L = compact ? 132 : 250, R = compact ? 12 : 172, per = compact ? 19 : 34;
+    const lab = sum.groups.map((g) => (g.all ? [clip(g.fig || g.label, per + 2)] : twoLines(g.fig || g.label, per)));
+    const two = lab.some((l) => l.length > 1), rowH = two ? (compact ? 52 : 56) : (compact ? 40 : 44);
+    const sub = fmt(sum.n) + ' faculty records · ' + sum.sub, perSub = compact ? 52 : 118;
     const wrap = (t, n, max) => { const out = []; let line = ''; t.split(' ').forEach((w) => { if ((line + ' ' + w).trim().length > n && line) { out.push(line); line = w; } else line = (line + ' ' + w).trim(); }); if (line) out.push(line); if (out.length > max) { out.length = max; out[max - 1] = clip(out[max - 1] + ' …', n); } return out; };
-    const subLines = wrap(sub, per, compact ? 3 : 2), top = 62 + subLines.length * 15;
-    const G = sum.groups.filter((g) => g.st);
-    const f1 = (v) => v.toFixed(1), q = fmtQ;
+    const subLines = wrap(sub, perSub, compact ? 3 : 2), top = 62 + subLines.length * 15;
+    const G = sum.groups.map((g, k) => Object.assign({}, g, { lines: lab[k] })).filter((g) => g.st);
+    const f1 = (v) => fix1(v), q = fmtQ;
     const hi = Math.max(5, ...G.map((g) => Math.max(g.st.p95, g.st.q3, g.st.mean)));
     const step = niceStep(hi), xmax = Math.ceil(hi / step) * step;
     const x0 = L + 8, x1 = W - R - 12, x = (v) => x0 + (Math.min(v, xmax) / xmax) * (x1 - x0);
@@ -783,8 +877,9 @@
       const tip = (g.fig || g.label) + ': n = ' + fmt(s.n) + '; mean ' + f1(s.mean) + ' (SD ' + f1(s.sd) + '); median ' + q(s.med) + ' (IQR ' + q(s.q1) + '–' + q(s.q3) + '); 5th–95th percentile ' + q(s.p5) + '–' + q(s.p95);
       o.push('<g><title>' + esc(tip) + '</title>');
       o.push('<rect x="0" y="' + (yc - rowH / 2) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>');
-      o.push(T(16, yc - 2, clip(g.fig || g.label, compact ? 20 : 36), ' font-size="' + (compact ? 12 : 13) + '"' + (g.all ? ' font-weight="700"' : '') + ' fill="' + pal.text + '"'));
-      o.push(T(16, yc + 13, 'n = ' + fmt(s.n), ' font-size="11" fill="' + pal.muted + '"'));
+      const y0 = g.lines.length > 1 ? yc - 9 : yc - 2;
+      g.lines.forEach((ln, j) => o.push(T(16, y0 + j * 14, ln, ' font-size="' + (compact ? 12 : 13) + '"' + (g.all ? ' font-weight="700"' : '') + ' fill="' + pal.text + '"')));
+      o.push(T(16, y0 + g.lines.length * 14 + 1, 'n = ' + fmt(s.n), ' font-size="11" fill="' + pal.muted + '"'));
       o.push('<line x1="' + x(s.p5).toFixed(1) + '" x2="' + x(s.q1).toFixed(1) + '" y1="' + yc + '" y2="' + yc + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>');
       o.push('<line x1="' + x(s.q3).toFixed(1) + '" x2="' + x(s.p95).toFixed(1) + '" y1="' + yc + '" y2="' + yc + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>');
       [s.p5, s.p95].forEach((v) => o.push('<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="' + (yc - 6) + '" y2="' + (yc + 6) + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>'));
@@ -820,7 +915,7 @@
     img.src = url;
   }
   function exportSummaryCSV() {
-    const f1 = (v) => (v == null ? '' : v.toFixed(1)), q = (v) => (v == null ? '' : fmtQ(v));
+    const f1 = (v) => (v == null ? '' : fix1(v)), q = (v) => (v == null ? '' : fmtQ(v));
     const lines = [['EM Faculty Census Explorer: ' + SUM.title], ['Selection: ' + fmt(SUM.n) + ' faculty records · ' + SUM.sub], ['Link: ' + location.href.split('#')[0] + listHash()],
       ['Faculty without a matched ' + (SUM.key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0. Percentiles use linear interpolation. Census ' + META.asOf + '.'], [],
       ['Group', 'n', 'Mean', 'SD', 'Median', 'Q1 (25th percentile)', 'Q3 (75th percentile)', 'IQR (Q3 - Q1)', '5th percentile', '95th percentile', 'h = 0 (%)']];
@@ -847,13 +942,13 @@
     const H = ['Record ID', 'First name', 'Last name', 'Listed credentials', 'Degree', 'Program(s)', 'ACGME program ID(s)', 'Program state(s)', 'Program type(s)', 'Institution', 'Academic rank', 'Listed academic title',
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
-      'Program chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source'];
+      'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source'];
     const out = rows.map((f) => {
       const pr = f.progs.map((k) => P[k]);
       return [f.rid, f.fn, f.ln, f.cred, f.deg, pr.map((x) => x.name).join('; '), pr.map((x) => x.id).join('; '), uniq(pr.map((x) => x.state)).join('; '), uniq(pr.map((x) => TYPES[x.typeIdx])).join('; '), f.inst,
         RANKS[f.rank], f.title, roleText(f), f.ftype, f.sc, META.scBasis[f.scb], f.scid ? f.scid.split(';').map((id) => 'https://www.scopus.com/authid/detail.uri?authorId=' + id).join('; ') : '', f.gs, META.gsBasis[f.gsb],
         f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', f.aau ? 'Yes' : 'No', f.aaum, f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No'), PHENOS[f.phenoIdx],
-        f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated program chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
+        f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated department chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
         f.chd ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') : '', f.chd ? f.chpos : '', f.chtitle, f.chsrc, { H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '',
         has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc];
     });
@@ -862,7 +957,7 @@
   function exportPrograms(rows, name) {
     const H = ['ACGME program ID', 'Program', 'Sponsor', 'Primary site', 'City', 'State', 'Program length (years)', 'Program type', 'Marker phenotype', 'AAU', 'AAU university(ies)', 'Vizient', 'Blue Ridge ranked',
       'Blue Ridge best rank (FY2025)', 'Blue Ridge institution(s)', 'ACGME accreditation year', 'Accreditation date', 'Accreditation era', 'DO origin', 'Origin', 'Origin basis', 'Former name',
-      'Program chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Program director(s)',
+      'Department chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Program director(s)',
       'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate ties', 'Classification confidence', 'Ownership source', 'Staffing source', 'Affiliation', 'NRMP code',
       'Faculty records', 'No rank (n)', 'No rank (%)', 'Instructor (n)', 'Assistant professor (n)', 'Associate professor (n)', 'Full professor (n)', 'Emeritus (n)', 'Other title (n)',
       'Median Scopus h', 'Scopus h Q1', 'Scopus h Q3', 'Mean Scopus h', 'Scopus h >= 10 (%)', 'Median Google Scholar h', 'DO-only degree share (%)'];

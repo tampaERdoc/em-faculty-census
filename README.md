@@ -1,16 +1,17 @@
 # EM Faculty Census Explorer
 
-A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,941 faculty-program records, compiled in September 2026.
+A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,910 faculty-program records, compiled in September 2026.
 
 **Live site:** https://tampaerdoc.github.io/em-faculty-census/
 
 ## What you can do
 
 - Search for a program or a person by name, institution, city, or state.
-- Filter by academic rank and leadership role (academic or hospital program chair, program director, vice chair, student clerkship director, and more); choosing one lists the matching people.
-- Filter programs by AAU, Vizient, and Blue Ridge (any combination), marker phenotype, program type, program chair (academic, hospital, or none identified), DO origin, ACGME accreditation era, state, program length, hospital ownership, and ED staffing.
+- Filter by academic rank, department chair (academic or hospital chairs listed by name, or programs with no chair identified), and leadership role (program director, vice chair, student clerkship director, and more); choosing a rank, chair, or role lists the matching people.
+- Filter programs by AAU, Vizient, and Blue Ridge (any combination), marker phenotype, program type, DO origin, ACGME accreditation era, state, program length, hospital ownership, and ED staffing.
 - Filter people further by degree and Scopus or Google Scholar h-index range.
-- Summarize any selection: n, mean, median, and interquartile range of the Scopus (or Google Scholar) h-index, overall and by academic rank, leadership role, program type, research stratum, accreditation era, or program origin, with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV.
+- Summarize any selection: n, mean, median, and interquartile range of the Scopus (or Google Scholar) h-index, overall and by academic rank, leadership role, program, program type, research stratum, accreditation era, or program origin, with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV.
+- Tick the box beside any program or person to limit the summary to your selection: one program gives its faculty, two or more programs are compared side by side. Ticked rows stay selected across searches, and a copied link keeps them.
 - Sort any column, including AAU, Vizient, and Blue Ridge.
 - Open a program to see everything recorded for it, including all of its faculty.
 - Export any search as a CSV, or copy a link that reopens the same search.
