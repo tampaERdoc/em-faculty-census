@@ -28,27 +28,28 @@
   const HB = [[0, 0, 'h = 0'], [1, 4, 'h 1–4'], [5, 9, 'h 5–9'], [10, 19, 'h 10–19'], [20, 1e9, 'h ≥ 20']];
   const has = (tok, t) => tok.indexOf(t) >= 0;
   const ROLE_GROUPS = [
-    { id: 'pca', label: 'Program chair: academic', test: (p) => p.chd === 1 && p.cht === 'A' },
-    { id: 'pch', label: 'Program chair: hospital', test: (p) => p.chd === 1 && p.cht === 'H' },
-    { id: 'chair', label: 'Any chair title', test: (p) => p.chd > 0 || has(p.tok, 'Chair') || has(p.tok, 'Interim Chair') },
-    { id: 'vice', label: 'Vice chair', test: (p) => p.tok.some((t) => t.indexOf('Vice Chair') >= 0) },
-    { id: 'chief', label: 'Division or section chief', test: (p) => has(p.tok, 'Division Chief') || has(p.tok, 'Section Chief') },
-    { id: 'pd', label: 'Program director', test: (p) => has(p.tok, 'Program Director') },
-    { id: 'apd', label: 'Associate or assistant program director', test: (p) => has(p.tok, 'Associate Program Director') || has(p.tok, 'Assistant Program Director') },
-    { id: 'md', label: 'Medical director (incl. associate/assistant)', test: (p) => p.tok.some((t) => /Medical Director$/.test(t)) },
-    { id: 'res', label: 'Research director or vice chair of research', test: (p) => p.tok.some((t) => ['Research Director', 'Vice Chair of Research', 'Vice Chair of Population Health & Research', 'Associate Vice Chair of Research'].indexOf(t) >= 0) },
-    { id: 'clerk', label: 'Clerkship director', test: (p) => p.tok.some((t) => /Clerkship Director$/.test(t)) },
-    { id: 'fellow', label: 'Fellowship director', test: (p) => p.tok.some((t) => /Fellowship Director$/.test(t)) },
-    { id: 'edu', label: 'Education director', test: (p) => has(p.tok, 'Education Director') },
-    { id: 'odir', label: 'Other director', test: (p) => has(p.tok, 'Other Director') },
-    { id: 'olead', label: 'Other department leadership', test: (p) => has(p.tok, 'Other Department Leadership') },
-    { id: 'fac', label: 'Faculty (no leadership title)', test: (p) => p.tok.every((t) => t === 'Faculty') && p.chd === 0 },
+    { id: 'pca', fig: 'Program chair (academic)', label: 'Program chair (academic)', test: (p) => p.chd === 1 && p.cht === 'A' },
+    { id: 'pch', fig: 'Program chair (hospital)', label: 'Program chair (hospital)', test: (p) => p.chd === 1 && p.cht === 'H' },
+    { id: 'pd', fig: 'Program director', label: 'Program director', test: (p) => has(p.tok, 'Program Director') },
+    { id: 'apd', fig: 'Assoc./asst. program director', label: 'Associate or assistant program director', test: (p) => has(p.tok, 'Associate Program Director') || has(p.tok, 'Assistant Program Director') },
+    { id: 'vice', fig: 'Vice chair', label: 'Vice chair (incl. associate and executive)', test: (p) => p.tok.some((t) => t.indexOf('Vice Chair') >= 0) },
+    { id: 'clerk', fig: 'Student clerkship director', label: 'Student clerkship director', test: (p) => has(p.tok, 'Student Clerkship Director') },
+    { id: 'aclerk', fig: 'Assoc./asst. clerkship director', label: 'Associate or assistant clerkship director', test: (p) => has(p.tok, 'Associate Clerkship Director') || has(p.tok, 'Assistant Clerkship Director') },
+    { id: 'fellow', fig: 'Fellowship director', label: 'Fellowship director (incl. associate/assistant)', test: (p) => p.tok.some((t) => /Fellowship Director$/.test(t)) },
+    { id: 'res', fig: 'Research director', label: 'Research director or vice chair of research', test: (p) => p.tok.some((t) => ['Research Director', 'Vice Chair of Research', 'Vice Chair of Population Health & Research', 'Associate Vice Chair of Research'].indexOf(t) >= 0) },
+    { id: 'chief', fig: 'Division/section chief', label: 'Division or section chief', test: (p) => has(p.tok, 'Division Chief') || has(p.tok, 'Section Chief') },
+    { id: 'md', fig: 'Medical director', label: 'Medical director (incl. associate/assistant)', test: (p) => p.tok.some((t) => /Medical Director$/.test(t)) },
+    { id: 'edu', fig: 'Education director', label: 'Education director', test: (p) => has(p.tok, 'Education Director') },
+    { id: 'odir', fig: 'Other director', label: 'Other director', test: (p) => has(p.tok, 'Other Director') },
+    { id: 'olead', fig: 'Other dept. leadership', label: 'Other department leadership', test: (p) => has(p.tok, 'Other Department Leadership') },
+    { id: 'chair', fig: 'Any chair title', label: 'Any chair title (incl. site and secondary chairs)', test: (p) => p.chd > 0 || has(p.tok, 'Chair') || has(p.tok, 'Interim Chair') },
+    { id: 'fac', fig: 'Faculty, no leadership title', label: 'Faculty (no leadership title)', test: (p) => p.tok.every((t) => t === 'Faculty') && p.chd === 0 },
   ];
   const DEGS = [[1, 'MD (incl. MBBS/MBChB)'], [2, 'DO'], [4, 'PhD or other research doctorate'], [8, 'Non-physician doctorate only'], [16, 'Degree not verified']];
 
   let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [];
-  const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], cpos: [], do: '', era: [], st: '', own: [], staff: [], len: '',
-    rank: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1 };
+  const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: '',
+    rank: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc' };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
   let matchP = [], matchF = [];
@@ -140,11 +141,14 @@
   function buildFilters() {
     const cnt = (fn) => P.filter(fn).length;
     const html = [];
+    const rc = RANKS.map((_, k) => F.filter((f) => f.rank === k).length);
+    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank or role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
+    html.push('<div class="fgroup"><h3>Leadership role</h3>' + checks('role', ROLE_GROUPS.map((g, k) => [g.id, g.label, F.filter((f) => f.roleMask & (1 << k)).length])) + '</div>');
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
-    html.push('<div class="fgroup"><h3>Program chair</h3>' + checks('chair', CHAIR_KEYS.map(([k, l]) => [k, l, cnt((p) => p.chairKey === k)])) +
-      '<p class="fsub">Chair position</p>' + checks('cpos', CHAIRPOS.map((t, k) => [k, t, cnt((p) => p.cposIdx === k)])) + '</div>');
+    html.push('<div class="fgroup"><h3>Program chair</h3><p class="hint">Programs by the type of chair who leads them. To select the chairs themselves, use Leadership role.</p>' +
+      checks('chair', CHAIR_KEYS.map(([k, l]) => [k, l, cnt((p) => p.chairKey === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Origin and accreditation</h3>' + tri('do', 'DO origin (moved from AOA)') +
       '<p class="fsub">ACGME accreditation era</p>' + checks('era', ERAS.map((t, k) => [k, t, cnt((p) => p.eraIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Location and ownership</h3><div class="row2"><label for="f-st" class="sr-only">State</label><select id="f-st" class="sel"><option value="">All states</option>' +
@@ -152,9 +156,6 @@
       '<label for="f-len" class="sr-only">Program length</label><select id="f-len" class="sel"><option value="">Any length</option><option value="3">3-year (' + cnt((p) => p.length === 3) + ')</option><option value="4">4-year (' + cnt((p) => p.length === 4) + ')</option></select></div>' +
       '<details class="more-filters"><summary>Hospital ownership and ED staffing</summary><p class="fsub">Hospital ownership</p>' + checks('own', OWN.map((t, k) => [k, t, cnt((p) => p.ownIdx === k)])) +
       '<p class="fsub">ED staffing</p>' + checks('staff', STAFF.map((t, k) => [k, t, cnt((p) => p.staffIdx === k)])) + '</details></div>');
-    const rc = RANKS.map((_, k) => F.filter((f) => f.rank === k).length);
-    html.push('<div class="fgroup people-only"><h3>Academic rank</h3>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
-    html.push('<div class="fgroup people-only"><h3>Role</h3>' + checks('role', ROLE_GROUPS.map((g, k) => [g.id, g.label, F.filter((f) => f.roleMask & (1 << k)).length])) + '</div>');
     html.push('<div class="fgroup people-only"><h3>h-index</h3><div class="row2"><label for="f-hs" class="sr-only">h-index source</label><select id="f-hs" class="sel"><option value="sc">Scopus</option><option value="gs">Google Scholar</option></select>' +
       '<label class="sr-only" for="f-hmin">Minimum h-index</label><input id="f-hmin" class="num-in" type="number" min="0" step="1" inputmode="numeric" placeholder="min"><span>to</span>' +
       '<label class="sr-only" for="f-hmax">Maximum h-index</label><input id="f-hmax" class="num-in" type="number" min="0" step="1" inputmode="numeric" placeholder="max"></div>' +
@@ -176,6 +177,7 @@
     if ($('#q').value !== S.q) $('#q').value = S.q;
     const people = S.view === 'people';
     document.querySelectorAll('.people-only').forEach((g) => g.classList.toggle('hidden-by-view', !people));
+    document.querySelectorAll('.view-hint').forEach((h) => { h.hidden = people; });
     $('#marker-hint').textContent = people ? 'Markers of each faculty member’s own institution.' : 'A program carries a marker if any of its faculty records does.';
     $('#tab-programs').setAttribute('aria-selected', String(!people)); $('#tab-people').setAttribute('aria-selected', String(people));
     const nf = activeFilters().length; const b = $('#filter-badge'); b.hidden = !nf; b.textContent = nf;
@@ -191,6 +193,7 @@
       if (box) {
         const key = box.dataset.key;
         S[key] = Array.from(box.querySelectorAll('input:checked')).map((i) => (['role', 'chair'].indexOf(key) >= 0 ? i.value : Number(i.value)));
+        if ((key === 'rank' || key === 'role') && S.view === 'programs' && S[key].length) { S.view = 'people'; toast('Showing people: rank and role select faculty'); return changed(true); }
         return changed();
       }
       if (e.target.id === 'f-st') S.st = e.target.value;
@@ -208,7 +211,7 @@
       const pr = e.target.closest('#h-presets button');
       if (pr) { S.hmin = pr.dataset.min; S.hmax = pr.dataset.max; changed(); }
     });
-    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); changed(); });
+    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); changed(); });
     $('#filters-toggle').addEventListener('click', () => toggleFilters(true));
     $('#filters-close').addEventListener('click', () => toggleFilters(false));
     document.addEventListener('keydown', (e) => {
@@ -236,6 +239,15 @@
     $('#export-csv').addEventListener('click', () => (S.view === 'people' ? exportPeople(matchF.map((k) => F[k]), 'em-census-people') : exportPrograms(matchP.map((k) => P[k]), 'em-census-programs')));
     $('#copy-link').addEventListener('click', () => copy(location.href.split('#')[0] + listHash(), 'Link to this search copied'));
     $('#overlay').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeOverlay(); });
+    $('#sum-group').innerHTML = GROUP_DIMS.map(([v, l]) => '<option value="' + v + '">' + esc(l) + '</option>').join('');
+    $('#sum-group').addEventListener('change', (e) => { S.g = e.target.value; changed(); });
+    $('#sum-index').addEventListener('change', (e) => { S.si = e.target.value; changed(); });
+    $('#sum-png').addEventListener('click', exportSummaryPNG);
+    $('#sum-svg').addEventListener('click', exportSummarySVG);
+    $('#sum-csv').addEventListener('click', exportSummaryCSV);
+    $('#jump-summary').addEventListener('click', () => { $('#summary').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('#summary').focus({ preventScroll: true }); });
+    let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawSummaryFigure, 150); });
+    if (window.matchMedia) { const mq = window.matchMedia('(prefers-color-scheme: dark)'); (mq.addEventListener ? mq.addEventListener('change', drawSummaryFigure) : mq.addListener(drawSummaryFigure)); }
   }
   function cleanNum(v) { v = String(v).trim(); if (v === '') return ''; const n = Math.max(0, Math.floor(Number(v))); return isFinite(n) ? String(n) : ''; }
   function toggleFilters(open) {
@@ -245,8 +257,8 @@
   }
 
   /* ---------------------------------------------------------------- state <-> hash */
-  const ARR = ['pheno', 'type', 'chair', 'cpos', 'era', 'own', 'staff', 'rank', 'role', 'deg'];
-  const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'len', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf'];
+  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg'];
+  const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'len', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf', 'g', 'si'];
   function listHash() {
     const u = new URLSearchParams();
     STR.forEach((k) => { if (S[k] !== DEFAULT[k] && S[k] !== '') u.set(k, S[k]); });
@@ -261,6 +273,9 @@
     STR.forEach((k) => { if (u.has(k)) s[k] = u.get(k); });
     ARR.forEach((k) => { if (u.get(k)) s[k] = u.get(k).split('.').filter((x) => x !== '').map((x) => (['role', 'chair'].indexOf(k) >= 0 ? x : Number(x))).filter((x) => x === x); });
     s.dp = u.get('dp') === '-1' ? -1 : 1; s.df = u.get('df') === '-1' ? -1 : 1;
+    s.role = s.role.filter((id) => ROLE_GROUPS.some((g) => g.id === id));
+    if (!GROUP_DIMS.some((d) => d[0] === s.g)) s.g = '';
+    if (s.si !== 'gs') s.si = 'sc';
     return s;
   }
   function go(hash) { inApp = true; location.hash = hash; }
@@ -301,7 +316,6 @@
     }
     if (S.type.length && S.type.indexOf(p.typeIdx) < 0) return false;
     if (S.chair.length && S.chair.indexOf(p.chairKey) < 0) return false;
-    if (S.cpos.length && S.cpos.indexOf(p.cposIdx) < 0) return false;
     if (!triOK(p.doOrigin, S.do)) return false;
     if (S.era.length && S.era.indexOf(p.eraIdx) < 0) return false;
     if (S.st && p.state !== S.st) return false;
@@ -310,7 +324,7 @@
     if (S.len && String(p.length) !== S.len) return false;
     return true;
   }
-  function progFilterActive() { return S.type.length || S.chair.length || S.cpos.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.len; }
+  function progFilterActive() { return S.type.length || S.chair.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.len; }
   function computeMatches() {
     const toks = tokens();
     matchP = []; P.forEach((p) => { if (progOK(p, true) && textOK(p.hay, toks)) matchP.push(p.i); });
@@ -345,8 +359,7 @@
     if (S.br) out.push(['br', 'Blue Ridge ranked: ' + tl[S.br]]);
     S.pheno.forEach((v) => out.push(['pheno:' + v, 'Phenotype: ' + PHENOS[v]]));
     S.type.forEach((v) => out.push(['type:' + v, TYPES[v]]));
-    S.chair.forEach((v) => out.push(['chair:' + v, (CHAIR_KEYS.find((c) => c[0] === v) || [, v])[1]]));
-    S.cpos.forEach((v) => out.push(['cpos:' + v, 'Chair: ' + CHAIRPOS[v]]));
+    S.chair.forEach((v) => out.push(['chair:' + v, 'Program led by: ' + (CHAIR_KEYS.find((c) => c[0] === v) || [, v])[1].toLowerCase()]));
     if (S.do) out.push(['do', 'DO origin: ' + tl[S.do]]);
     S.era.forEach((v) => out.push(['era:' + v, 'Accredited: ' + ERAS[v]]));
     if (S.st) out.push(['st', 'State: ' + S.st]);
@@ -445,6 +458,7 @@
       $('#table-note').innerHTML = 'Faculty counts are faculty-program records linked to each program. Blue Ridge shows the best (lowest) FY2025 NIH rank among the program’s medical schools. Accredited is the year of ACGME accreditation; ≤2000 means accredited on or before 2000.';
     }
     renderTable();
+    renderSummary();
   }
   let curRows = [];
   function renderHead(cols, key, dir) {
@@ -628,7 +642,8 @@
     return '<p class="d-kicker">About</p><h2 class="d-title" id="panel-title">About the data</h2><div class="prose">' +
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
       ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
-      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
+      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank and leadership role select faculty, so choosing one lists the matching people. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
+      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping. In the Programs view the summary covers all faculty at the programs shown.</p>' +
       '<h3>Definitions</h3><dl>' +
       '<dt>Academic rank</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor. No rank means none was published.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
@@ -638,6 +653,7 @@
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
       '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-marker academic</em>: any of the three markers, split into NIH-ranked (Blue Ridge) and AAU or Vizient. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. <em>Community-based</em>: everything else (non-profit or public).</dd>' +
       '<dt>Program chair</dt><dd>One chair per program. An <em>academic chair</em> heads a medical-school EM department, division, or section (including regional campuses). A <em>hospital chair</em> heads a hospital or health-system emergency department: department chair, chief, system chair, or, when none of those was identified, the ED medical director. Where a program listed both, the academic chair was designated. Evidence is graded high, medium, or low.</dd>' +
+      '<dt>Leadership role</dt><dd>Titles as listed by each program. <em>Program chair (academic or hospital)</em> is the one designated chair per program, defined below. <em>Program director</em> is the residency program director; <em>Student clerkship director</em> is the medical student clerkship director (associate and assistant clerkship directors are listed separately); <em>Vice chair</em> includes associate and executive vice chairs. A faculty member can hold more than one title.</dd>' +
       '<dt>Program director</dt><dd>Faculty listed with the Program Director title.</dd>' +
       '<dt>ACGME accreditation</dt><dd>The effective date of the earliest record conferring accredited or pre-accredited status. Published histories begin in academic year 2000–2001, so older programs are shown as on or before 2000. It marks entry into ACGME accreditation, not when training began.</dd>' +
       '<dt>DO origin</dt><dd>The program held American Osteopathic Association accreditation before the single accreditation system (2014–2020) and obtained ACGME accreditation during it.</dd>' +
@@ -647,6 +663,171 @@
       '<p class="note">National census of US emergency medicine faculty, USF Department of Emergency Medicine, ' + esc(META.asOf) + '.</p></div>';
   }
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-export-all-inline]'); if (b) (b.dataset.exportAllInline === 'people' ? exportPeople(F, 'em-census-all-people') : exportPrograms(P, 'em-census-all-programs')); });
+
+  /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
+  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['role', 'Leadership role'], ['type', 'Program type'],
+    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
+  const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
+  const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
+  const PAL = {
+    light: { bg: '#ffffff', text: '#1b2521', muted: '#56645e', grid: '#e3e9e6', axis: '#9aa7a1', box: '#d3e6dc', boxAll: '#b3d4c3', stroke: '#006747', med: '#00563b', whisk: '#56645e', mean: '#cfc493', meanStroke: '#6e5f1c', rule: '#c3ccc7' },
+    dark: { bg: '#151c18', text: '#e4ebe7', muted: '#a3b1ab', grid: '#29342f', axis: '#56645e', box: '#1f3a2d', boxAll: '#2a5443', stroke: '#56b68c', med: '#9fdcbc', whisk: '#a3b1ab', mean: '#d6ca97', meanStroke: '#efe6bd', rule: '#3a4842' },
+  };
+  let SUM = null;
+  function autoGroup() {
+    if (S.rank.length >= 2) return 'rank';
+    if (S.role.length >= 2) return 'role';
+    if (S.type.length >= 2) return 'type';
+    if (S.era.length >= 2) return 'era';
+    if (S.rank.length === 1) return 'type';
+    return 'rank';
+  }
+  function summaryRows() {
+    if (S.view === 'people') return matchF.map((k) => F[k]);
+    const seen = new Set(), out = [];
+    matchP.forEach((pi) => P[pi].fac.forEach((k) => { if (!seen.has(k)) { seen.add(k); out.push(F[k]); } }));
+    return out;
+  }
+  function groupDefs(dim) {
+    const first = (f) => P[f.progs[0]];
+    const pick = (sel, all) => (sel.length ? sel.slice().sort((a, b) => a - b) : all);
+    if (dim === 'rank') return pick(S.rank, RANKS.map((_, k) => k)).map((k) => ({ label: RANKS[k], test: (f) => f.rank === k }));
+    if (dim === 'role') {
+      const ids = S.role.length ? ROLE_GROUPS.filter((g) => S.role.indexOf(g.id) >= 0).map((g) => g.id) : ROLE_DEFAULT;
+      return ids.map((id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return { label: ROLE_GROUPS[k].label, fig: ROLE_GROUPS[k].fig, test: (f) => !!(f.roleMask & (1 << k)) }; });
+    }
+    if (dim === 'type') return pick(S.type, TYPES.map((_, k) => k)).map((k) => ({ label: TYPE_SHORT[k], csv: TYPES[k], test: (f) => first(f).typeIdx === k }));
+    if (dim === 'stratum') {
+      const st = (f) => (f.brr != null ? 0 : (f.aau || f.viz === 1 ? 1 : 2));
+      return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k }));
+    }
+    if (dim === 'era') return pick(S.era, ERAS.map((_, k) => k)).map((k) => ({ label: ERAS[k], test: (f) => first(f).eraIdx === k }));
+    if (dim === 'origin') { const dO = (f) => f.progs.some((pi) => P[pi].doOrigin); return [{ label: 'DO-origin program', test: (f) => dO(f) }, { label: 'Allopathic-origin program', test: (f) => !dO(f) }]; }
+    return [];
+  }
+  function hStats(vals) {
+    const n = vals.length; if (!n) return null;
+    const mean = vals.reduce((a, b) => a + b, 0) / n;
+    const sd = n > 1 ? Math.sqrt(vals.reduce((a, v) => a + (v - mean) * (v - mean), 0) / (n - 1)) : 0;
+    return { n, mean, sd, med: quantile(vals, 0.5), q1: quantile(vals, 0.25), q3: quantile(vals, 0.75), p5: quantile(vals, 0.05), p95: quantile(vals, 0.95), zero: vals.filter((v) => v === 0).length / n };
+  }
+  function selectionText() {
+    const personOnly = /^(rank|role|deg|h|hp)/;
+    const chips = activeFilters().filter(([k]) => S.view === 'people' || !personOnly.test(k)).map(([, l]) => l);
+    if (S.q.trim()) chips.unshift('Search “' + S.q.trim() + '”');
+    if (S.view === 'people') return chips.length ? chips.join(' · ') : 'All faculty records';
+    return 'Faculty at ' + fmt(matchP.length) + (matchP.length === 1 ? ' program' : ' programs') + ' shown' + (chips.length ? ' · ' + chips.join(' · ') : '');
+  }
+  function renderSummary() {
+    const rows = summaryRows(), key = S.si === 'gs' ? 'gs' : 'sc', dim = S.g || autoGroup();
+    const idxName = key === 'gs' ? 'Google Scholar h-index' : 'Scopus h-index';
+    const dimLabel = (GROUP_DIMS.find((d) => d[0] === dim) || ['', ''])[1];
+    const num = (a, b) => a - b;
+    const groups = [{ label: 'All selected', fig: 'All selected', csv: 'All selected', all: true, st: hStats(rows.map((f) => f[key]).sort(num)) }];
+    if (dim !== 'none' && rows.length) groupDefs(dim).forEach((g) => { groups.push({ label: g.label, fig: g.fig || g.label, csv: g.csv || g.label, st: hStats(rows.filter(g.test).map((f) => f[key]).sort(num)) }); });
+    if (groups.length === 2 && groups[1].st && groups[0].st && groups[1].st.n === groups[0].st.n) groups.pop();
+    const broke = groups.length > 1;
+    SUM = { groups, dim, dimLabel, key, idxName, title: idxName + (broke ? ' by ' + dimLabel.toLowerCase() : ''), sub: selectionText(), n: rows.length };
+    const autoOpt = $('#sum-group option[value=""]'); if (autoOpt) autoOpt.textContent = 'Auto (' + (GROUP_DIMS.find((d) => d[0] === autoGroup()) || ['', ''])[1].toLowerCase() + ')';
+    $('#sum-group').value = S.g; $('#sum-index').value = key;
+    $('#sum-caption').textContent = SUM.title + ': ' + fmt(rows.length) + ' faculty records (' + SUM.sub + ')';
+    const f1 = (v) => (v == null ? '—' : v.toFixed(1));
+    $('#sum-tbody').innerHTML = groups.map((g) => '<tr' + (g.all ? ' class="all"' : '') + '><th scope="row">' + esc(g.label) + '</th><td class="num">' + fmt(g.st ? g.st.n : 0) + '</td><td class="num">' + (g.st ? f1(g.st.mean) : '—') +
+      '</td><td class="num">' + (g.st ? fmtQ(g.st.med) : '—') + '</td><td class="num">' + (g.st ? fmtQ(g.st.q1) + '–' + fmtQ(g.st.q3) : '—') + '</td></tr>').join('');
+    $('#sum-thead').innerHTML = '<tr><th scope="col">Group</th><th scope="col" class="num">n</th><th scope="col" class="num">Mean h</th><th scope="col" class="num">Median h</th><th scope="col" class="num">IQR</th></tr>';
+    $('#sum-note').textContent = (dim === 'role' && broke ? 'Leadership groups can overlap: a faculty member with two titles counts in both. ' : '') +
+      (dim === 'type' || dim === 'era' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
+      'IQR is the 25th to 75th percentile. Faculty without a matched ' + (key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0, as in the study.';
+    const has0 = rows.length > 0;
+    $('#sum-empty').hidden = has0; $('#sum-fig').hidden = !has0; $('#sum-table-wrap').hidden = !has0;
+    ['#sum-png', '#sum-svg', '#sum-csv'].forEach((id) => { $(id).disabled = !has0; });
+    drawSummaryFigure();
+  }
+  function drawSummaryFigure() {
+    if (!SUM || !SUM.n) { $('#sum-fig').innerHTML = ''; return; }
+    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light';
+    const w = Math.max(320, Math.min(860, Math.round($('#sum-fig').clientWidth || 860)));
+    $('#sum-fig').innerHTML = svgFigure(SUM, dark ? PAL.dark : PAL.light, w).svg;
+  }
+  function niceStep(hi) { const steps = [1, 2, 5, 10, 20, 25, 50, 100]; for (let k = 0; k < steps.length; k++) if (hi / steps[k] <= 6) return steps[k]; return 200; }
+  function clip(t, n) { t = String(t); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+  function svgFigure(sum, pal, W) {
+    const compact = W < 640, L = compact ? 132 : 250, R = compact ? 12 : 172, rowH = compact ? 40 : 44;
+    const sub = fmt(sum.n) + ' faculty records · ' + sum.sub, per = compact ? 52 : 118;
+    const wrap = (t, n, max) => { const out = []; let line = ''; t.split(' ').forEach((w) => { if ((line + ' ' + w).trim().length > n && line) { out.push(line); line = w; } else line = (line + ' ' + w).trim(); }); if (line) out.push(line); if (out.length > max) { out.length = max; out[max - 1] = clip(out[max - 1] + ' …', n); } return out; };
+    const subLines = wrap(sub, per, compact ? 3 : 2), top = 62 + subLines.length * 15;
+    const G = sum.groups.filter((g) => g.st);
+    const f1 = (v) => v.toFixed(1), q = fmtQ;
+    const hi = Math.max(5, ...G.map((g) => Math.max(g.st.p95, g.st.q3, g.st.mean)));
+    const step = niceStep(hi), xmax = Math.ceil(hi / step) * step;
+    const x0 = L + 8, x1 = W - R - 12, x = (v) => x0 + (Math.min(v, xmax) / xmax) * (x1 - x0);
+    const n1 = 'Box: interquartile range. Line: median. ◆ Mean. Whiskers: 5th–95th percentile.';
+    const n2 = 'No matched profile counted as 0. EM Faculty Census Explorer, ' + META.asOf + '.';
+    const notes = compact ? wrap(n1 + ' ' + n2, 50, 6) : [n1, n2 + ' tampaerdoc.github.io/em-faculty-census'];
+    const plotBottom = top + G.length * rowH, H = plotBottom + 58 + (notes.length - 1) * 15 + 14;
+    const T = (x_, y_, txt, a) => '<text x="' + x_.toFixed(1) + '" y="' + y_.toFixed(1) + '"' + (a || '') + '>' + esc(txt) + '</text>';
+    const o = [];
+    o.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(sum.title + '. ' + G.map((g) => (g.fig || g.label) + ': n ' + g.st.n + ', mean ' + f1(g.st.mean) + ', median ' + q(g.st.med) + ', IQR ' + q(g.st.q1) + ' to ' + q(g.st.q3)).join('; ')) + '" font-family="Helvetica, Arial, sans-serif">');
+    o.push('<rect width="' + W + '" height="' + H + '" fill="' + pal.bg + '"/>');
+    o.push(T(16, 28, clip(sum.title, compact ? 44 : 90), ' font-size="' + (compact ? 15 : 17) + '" font-weight="700" fill="' + pal.text + '"'));
+    subLines.forEach((ln, k) => o.push(T(16, 48 + k * 15, ln, ' font-size="' + (compact ? 11.5 : 12.5) + '" fill="' + pal.muted + '"')));
+    if (!compact) { o.push(T(W - R + 6, top - 10, 'Median (IQR)', ' font-size="11" font-weight="700" fill="' + pal.muted + '"')); o.push(T(W - 16, top - 10, 'Mean', ' font-size="11" font-weight="700" fill="' + pal.muted + '" text-anchor="end"')); }
+    for (let t = 0; t <= xmax + 1e-9; t += step) {
+      o.push('<line x1="' + x(t).toFixed(1) + '" x2="' + x(t).toFixed(1) + '" y1="' + (top - 4) + '" y2="' + plotBottom + '" stroke="' + pal.grid + '" stroke-width="1"/>');
+      o.push(T(x(t), plotBottom + 16, String(t), ' font-size="11" fill="' + pal.muted + '" text-anchor="middle"'));
+    }
+    o.push('<line x1="' + x0 + '" x2="' + x1 + '" y1="' + plotBottom + '" y2="' + plotBottom + '" stroke="' + pal.axis + '" stroke-width="1"/>');
+    o.push(T((x0 + x1) / 2, plotBottom + 34, sum.idxName, ' font-size="12" fill="' + pal.text + '" text-anchor="middle"'));
+    G.forEach((g, i) => {
+      const s = g.st, yc = top + i * rowH + rowH / 2;
+      const tip = (g.fig || g.label) + ': n = ' + fmt(s.n) + '; mean ' + f1(s.mean) + ' (SD ' + f1(s.sd) + '); median ' + q(s.med) + ' (IQR ' + q(s.q1) + '–' + q(s.q3) + '); 5th–95th percentile ' + q(s.p5) + '–' + q(s.p95);
+      o.push('<g><title>' + esc(tip) + '</title>');
+      o.push('<rect x="0" y="' + (yc - rowH / 2) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>');
+      o.push(T(16, yc - 2, clip(g.fig || g.label, compact ? 20 : 36), ' font-size="' + (compact ? 12 : 13) + '"' + (g.all ? ' font-weight="700"' : '') + ' fill="' + pal.text + '"'));
+      o.push(T(16, yc + 13, 'n = ' + fmt(s.n), ' font-size="11" fill="' + pal.muted + '"'));
+      o.push('<line x1="' + x(s.p5).toFixed(1) + '" x2="' + x(s.q1).toFixed(1) + '" y1="' + yc + '" y2="' + yc + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>');
+      o.push('<line x1="' + x(s.q3).toFixed(1) + '" x2="' + x(s.p95).toFixed(1) + '" y1="' + yc + '" y2="' + yc + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>');
+      [s.p5, s.p95].forEach((v) => o.push('<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="' + (yc - 6) + '" y2="' + (yc + 6) + '" stroke="' + pal.whisk + '" stroke-width="1.3"/>'));
+      const bx = x(s.q1), bw = Math.max(2, x(s.q3) - x(s.q1));
+      o.push('<rect x="' + bx.toFixed(1) + '" y="' + (yc - 9) + '" width="' + bw.toFixed(1) + '" height="18" rx="2" fill="' + (g.all ? pal.boxAll : pal.box) + '" stroke="' + pal.stroke + '" stroke-width="1.3"/>');
+      o.push('<line x1="' + x(s.med).toFixed(1) + '" x2="' + x(s.med).toFixed(1) + '" y1="' + (yc - 9) + '" y2="' + (yc + 9) + '" stroke="' + pal.med + '" stroke-width="2.6"/>');
+      const mx = x(s.mean);
+      o.push('<path d="M' + mx.toFixed(1) + ' ' + (yc - 6.5) + ' L' + (mx + 6.5).toFixed(1) + ' ' + yc + ' L' + mx.toFixed(1) + ' ' + (yc + 6.5) + ' L' + (mx - 6.5).toFixed(1) + ' ' + yc + ' Z" fill="' + pal.mean + '" stroke="' + pal.meanStroke + '" stroke-width="1.2"/>');
+      if (!compact) { o.push(T(W - R + 6, yc + 4, q(s.med) + ' (' + q(s.q1) + '–' + q(s.q3) + ')', ' font-size="12.5" fill="' + pal.text + '"')); o.push(T(W - 16, yc + 4, f1(s.mean), ' font-size="12.5" fill="' + pal.text + '" text-anchor="end"')); }
+      o.push('</g>');
+      if (g.all && G.length > 1) o.push('<line x1="16" x2="' + (W - 16) + '" y1="' + (yc + rowH / 2) + '" y2="' + (yc + rowH / 2) + '" stroke="' + pal.rule + '" stroke-width="1" stroke-dasharray="3 3"/>');
+    });
+    notes.forEach((ln, k) => o.push(T(16, plotBottom + 58 + k * 15, ln, ' font-size="11" fill="' + pal.muted + '"')));
+    o.push('</svg>');
+    return { svg: o.join(''), w: W, h: H };
+  }
+  function sumFileName() { return 'em-census-' + (SUM.key === 'gs' ? 'scholar' : 'scopus') + '-h' + (SUM.groups.length > 1 ? '-by-' + SUM.dim : '') + '-' + (S.view === 'people' ? 'faculty' : 'programs'); }
+  function saveBlob(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function exportSummarySVG() { const f = svgFigure(SUM, PAL.light, 860); saveBlob(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + f.svg], { type: 'image/svg+xml;charset=utf-8' }), sumFileName() + '.svg'); toast('Figure saved (SVG)'); }
+  function exportSummaryPNG() {
+    const f = svgFigure(SUM, PAL.light, 860), scale = 3, img = new Image();
+    const url = URL.createObjectURL(new Blob([f.svg], { type: 'image/svg+xml;charset=utf-8' }));
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = f.w * scale; c.height = f.h * scale;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => { if (b) { saveBlob(b, sumFileName() + '.png'); toast('Figure saved (PNG)'); } else toast('Could not create the PNG'); }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('Could not create the PNG'); };
+    img.src = url;
+  }
+  function exportSummaryCSV() {
+    const f1 = (v) => (v == null ? '' : v.toFixed(1)), q = (v) => (v == null ? '' : fmtQ(v));
+    const lines = [['EM Faculty Census Explorer: ' + SUM.title], ['Selection: ' + fmt(SUM.n) + ' faculty records · ' + SUM.sub], ['Link: ' + location.href.split('#')[0] + listHash()],
+      ['Faculty without a matched ' + (SUM.key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0. Percentiles use linear interpolation. Census ' + META.asOf + '.'], [],
+      ['Group', 'n', 'Mean', 'SD', 'Median', 'Q1 (25th percentile)', 'Q3 (75th percentile)', 'IQR (Q3 - Q1)', '5th percentile', '95th percentile', 'h = 0 (%)']];
+    SUM.groups.forEach((g) => { const s = g.st; lines.push(s ? [g.csv, s.n, f1(s.mean), f1(s.sd), q(s.med), q(s.q1), q(s.q3), q(s.q3 - s.q1), q(s.p5), q(s.p95), (100 * s.zero).toFixed(1)] : [g.csv, 0, '', '', '', '', '', '', '', '', '']); });
+    const csv = '﻿' + lines.map((r) => r.map(csvCell).join(',')).join('\r\n');
+    saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), sumFileName() + '.csv'); toast('Summary saved (CSV)');
+  }
 
   /* ---------------------------------------------------------------- CSV */
   function csvCell(v) {

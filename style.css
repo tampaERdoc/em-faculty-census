@@ -219,3 +219,27 @@ body.no-scroll { overflow: hidden; }
 .callout-note { margin: 0 0 16px; padding: 11px 14px; border-radius: var(--radius); background: var(--gold-tint); border: 1px solid #e3dbb7; font-size: 14px; }
 .callout-note .sub { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .search-note, :root:not([data-theme="light"]) .callout-note { border-color: #4a4426; } }
+
+/* group summary with figure */
+.summary { margin-top: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px; scroll-margin-top: 12px; }
+.summary:focus { outline: none; }
+.summary-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+.summary-titles { min-width: 0; flex: 1 1 360px; }
+.summary-kicker { margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.summary h2 { margin: 0 0 2px; font-size: 18px; }
+.summary-sub { margin: 0; color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+.summary-controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.ctl { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.sum-fig { margin: 4px 0 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.sum-fig svg { display: block; width: 100%; height: auto; }
+.sum-table-wrap { max-height: none; }
+table.sum-table tbody tr { cursor: default; }
+table.sum-table tbody tr:hover td, table.sum-table tbody tr:hover th { background: transparent; }
+table.sum-table tbody th { text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+table.sum-table tbody tr:last-child th { border-bottom: 0; }
+table.sum-table tr.all th, table.sum-table tr.all td { background: var(--green-tint); font-weight: 700; }
+table.sum-table thead th { position: static; }
+.summary-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.summary-actions .btn:disabled { opacity: .5; cursor: not-allowed; }
+table.sum-table td.num { white-space: nowrap; }
+@media (max-width: 719.98px) { .summary { padding: 12px; } .summary-controls { width: 100%; } .ctl { flex: 1 1 100%; } .ctl .sel { width: 100%; } .results-actions { flex-wrap: wrap; } table.sum-table th, table.sum-table td { padding: 7px 7px; } }

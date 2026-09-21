@@ -59,6 +59,7 @@
           <p class="result-summary" id="result-summary"></p>
         </div>
         <div class="results-actions">
+          <button type="button" class="btn" id="jump-summary" title="Jump to the h-index summary and figure">Summary &darr;</button>
           <button type="button" class="btn" id="copy-link" title="Copy a link to this search">Copy link</button>
           <button type="button" class="btn btn-primary" id="export-csv">Export CSV</button>
         </div>
@@ -74,6 +75,34 @@
       <p class="empty" id="empty" hidden>No matches. Try removing a filter or shortening the search.</p>
       <div class="more"><button type="button" class="btn" id="show-more" hidden>Show more</button></div>
       <p class="table-note" id="table-note"></p>
+
+      <section class="summary" id="summary" tabindex="-1" aria-labelledby="sum-title">
+        <div class="summary-head">
+          <div class="summary-titles">
+            <h2 id="sum-title">Summary for this selection</h2>
+            <p class="summary-sub">n, mean, median, and interquartile range, overall and by group. Download the figure or the numbers below.</p>
+          </div>
+          <div class="summary-controls">
+            <label class="ctl"><span>Group by</span><select id="sum-group" class="sel"></select></label>
+            <label class="ctl"><span>Index</span><select id="sum-index" class="sel"><option value="sc">Scopus h</option><option value="gs">Google Scholar h</option></select></label>
+          </div>
+        </div>
+        <p class="empty" id="sum-empty" hidden>No faculty in this selection.</p>
+        <figure class="sum-fig" id="sum-fig" aria-describedby="sum-note"></figure>
+        <div class="table-wrap sum-table-wrap" id="sum-table-wrap">
+          <table class="data sum-table" id="sum-table">
+            <caption class="sr-only" id="sum-caption">Summary statistics for the selected groups</caption>
+            <thead id="sum-thead"></thead>
+            <tbody id="sum-tbody"></tbody>
+          </table>
+        </div>
+        <p class="note" id="sum-note"></p>
+        <div class="summary-actions">
+          <button type="button" class="btn" id="sum-png">Download figure (PNG)</button>
+          <button type="button" class="btn" id="sum-svg">Download figure (SVG)</button>
+          <button type="button" class="btn btn-primary" id="sum-csv">Download summary (CSV)</button>
+        </div>
+      </section>
     </section>
   </div>
 </main>
