@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EM Faculty Census Explorer</title>
+<meta name="description" content="Search a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: academic rank, Scopus and Google Scholar h-index, program type, AAU, Vizient and Blue Ridge markers, chairs, and program directors.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23006747'/%3E%3Cpath d='M18 44V20h6v24zm11 0V28h6v16zm11 0V14h6v30z' fill='%23CFC493'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#results">Skip to results</a>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <h1><a href="#/programs" data-nav>EM Faculty Census Explorer</a></h1>
+      <p class="tagline"><span class="t-long" id="tagline">National census of emergency medicine faculty at all ACGME-accredited EM residency programs</span><span class="t-short" id="tagline-short">National EM faculty census</span></p>
+    </div>
+    <nav class="header-links">
+      <a href="#/about" data-nav>About the data</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="app" aria-busy="true">
+  <div class="loading" id="loading" role="status">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Loading the census…</p>
+  </div>
+
+  <section class="toolbar" id="toolbar" hidden>
+    <div class="view-switch" role="tablist" aria-label="What to list">
+      <button type="button" role="tab" id="tab-programs" data-view="programs" aria-selected="true">Programs <span class="count" id="count-programs"></span></button>
+      <button type="button" role="tab" id="tab-people" data-view="people" aria-selected="false">People <span class="count" id="count-people"></span></button>
+    </div>
+    <div class="search">
+      <label for="q" class="sr-only">Search</label>
+      <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search a program, person, institution, city, or state">
+    </div>
+    <button type="button" class="btn btn-ghost filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false">Filters <span class="badge" id="filter-badge" hidden></span></button>
+  </section>
+
+  <div class="layout" id="layout" hidden>
+    <aside class="filters" id="filters" aria-label="Filters">
+      <div class="filters-head">
+        <h2>Filters</h2>
+        <button type="button" class="link-btn" id="clear-filters">Clear all</button>
+        <button type="button" class="icon-btn filters-close" id="filters-close" aria-label="Close filters">&times;</button>
+      </div>
+      <div id="filter-groups"></div>
+    </aside>
+
+    <section class="results" id="results" tabindex="-1" aria-label="Results">
+      <div class="results-head">
+        <div>
+          <p class="result-count" id="result-count" aria-live="polite"></p>
+          <p class="result-summary" id="result-summary"></p>
+        </div>
+        <div class="results-actions">
+          <button type="button" class="btn" id="copy-link" title="Copy a link to this search">Copy link</button>
+          <button type="button" class="btn btn-primary" id="export-csv">Export CSV</button>
+        </div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="table-wrap">
+        <table class="data" id="table">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="empty" hidden>No matches. Try removing a filter or shortening the search.</p>
+      <div class="more"><button type="button" class="btn" id="show-more" hidden>Show more</button></div>
+      <p class="table-note" id="table-note"></p>
+    </section>
+  </div>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="scrim" data-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title" tabindex="-1" id="panel">
+    <div class="panel-bar">
+      <button type="button" class="btn btn-ghost" data-close>&larr; Back</button>
+      <div class="panel-actions" id="panel-actions"></div>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p id="footer-text">Data: national census of US emergency medicine faculty, September 2026. h-index values are Scopus and Google Scholar; a faculty member without a matched profile is counted as 0, as in the study.</p>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="app.js" defer></script>
+</body>
+</html>
