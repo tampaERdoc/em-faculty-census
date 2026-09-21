@@ -554,7 +554,7 @@
       '<div class="stats">' + stat(fmt(p.n), 'faculty records') + stat(pct(p.rankN[0], p.n, 0), 'no academic rank') + stat(fmtQ(p.medSc), 'median Scopus h (IQR ' + fmtQ(p.q1Sc) + '–' + fmtQ(p.q3Sc) + ')') + stat(fmtQ(p.medGs), 'median Google Scholar h') + '</div>' +
       '<div class="card"><h3>Program</h3><dl class="facts">' +
       fact('Program type', esc(TYPES[p.typeIdx])) + fact('Marker phenotype', esc(p.pheno)) +
-      fact('AAU', p.aau ? 'Yes' + (p.aauMembers.length ? '<span class="sub">' + esc(p.aauMembers.join('; ')) + '</span>' : '') : 'No') +
+      fact('AAU', p.aau ? 'Yes' + (p.aauMembers.length ? '<span class="sub">' + esc(p.aauMembers.join('; ')) + '</span>' : '') : 'No' + (p.aauNote ? '<span class="sub">' + esc(p.aauNote) + '</span>' : '')) +
       fact('Vizient', p.viz ? 'Yes (Vizient Academic Medical Center cohort)' : 'No') + fact('Blue Ridge (NIH)', brTxt) +
       fact('Year accredited (ACGME)', acc) + fact('Accreditation era', esc(p.accEra)) +
       fact('DO origin', (p.doOrigin ? 'Yes: AOA-accredited program that moved to ACGME accreditation' : 'No' + (p.origin && p.origin.indexOf('ACGME (allopathic)') !== 0 ? '<span class="sub">' + esc(p.origin) + '</span>' : '')) +
@@ -632,7 +632,7 @@
       '<h3>Definitions</h3><dl>' +
       '<dt>Academic rank</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor. No rank means none was published.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
-      '<dt>AAU</dt><dd>The sponsor or primary teaching site is a US member of the Association of American Universities, or a hospital whose EM residency is affiliated with one.</dd>' +
+      '<dt>AAU</dt><dd>The sponsor or primary teaching site is a US member of the Association of American Universities, or a hospital whose EM residency is affiliated with one. Twenty-nine affiliated hospitals and regional campuses that the senior author judged not part of an AAU member institution carry no AAU marker (review of September 21, 2026); the program page says so under AAU.</dd>' +
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
       '<dt>Blue Ridge</dt><dd>The medical school appears in the Blue Ridge Institute for Medical Research (BRIMR) fiscal-year 2025 ranking of NIH funding to departments of emergency medicine. Ranks and dollars are BRIMR’s.</dd>' +
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
