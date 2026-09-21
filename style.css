@@ -213,3 +213,9 @@ body.no-scroll { overflow: hidden; }
 .site-footer { border-top: 1px solid var(--border); color: var(--faint); font-size: 12.5px; padding: 14px 0 24px; }
 .site-footer p { margin: 0; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #1b2521; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; z-index: 80; box-shadow: var(--shadow); }
+
+/* disambiguation notes */
+.search-note { margin: 0 0 10px; padding: 9px 12px; border-radius: 8px; background: var(--gold-tint); border: 1px solid #e3dbb7; color: var(--text); font-size: 13.5px; }
+.callout-note { margin: 0 0 16px; padding: 11px 14px; border-radius: var(--radius); background: var(--gold-tint); border: 1px solid #e3dbb7; font-size: 14px; }
+.callout-note .sub { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .search-note, :root:not([data-theme="light"]) .callout-note { border-color: #4a4426; } }
