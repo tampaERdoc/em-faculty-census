@@ -60,7 +60,7 @@
   const MAXT = 15; // most listed titles compared side by side in the summary
   const PLAIN_TITLES = new Set(['instructor', 'assistant professor', 'associate professor', 'professor', 'full professor']);
   const PID = new Map(), RID = new Map();
-  const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: '',
+  const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: [],
     rank: [], title: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
@@ -176,11 +176,12 @@
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
+    html.push('<div class="fgroup"><h3>Program length</h3>' + checks('len', [[3, '3-year programs', cnt((p) => p.length === 3)], [4, '4-year programs', cnt((p) => p.length === 4)]]) + '</div>');
     html.push('<div class="fgroup"><h3>Origin and accreditation</h3>' + tri('do', 'DO origin (moved from AOA)') +
       '<p class="fsub">ACGME accreditation era</p>' + checks('era', ERAS.map((t, k) => [k, t, cnt((p) => p.eraIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Location and ownership</h3><div class="row2"><label for="f-st" class="sr-only">State</label><select id="f-st" class="sel"><option value="">All states</option>' +
       STATES.map((s) => '<option value="' + esc(s) + '">' + esc(s) + ' (' + cnt((p) => p.state === s) + ')</option>').join('') + '</select>' +
-      '<label for="f-len" class="sr-only">Program length</label><select id="f-len" class="sel"><option value="">Any length</option><option value="3">3-year (' + cnt((p) => p.length === 3) + ')</option><option value="4">4-year (' + cnt((p) => p.length === 4) + ')</option></select></div>' +
+      '</div>' +
       '<details class="more-filters"><summary>Hospital ownership and ED staffing</summary><p class="fsub">Hospital ownership</p>' + checks('own', OWN.map((t, k) => [k, t, cnt((p) => p.ownIdx === k)])) +
       '<p class="fsub">ED staffing</p>' + checks('staff', STAFF.map((t, k) => [k, t, cnt((p) => p.staffIdx === k)])) + '</details></div>');
     html.push('<div class="fgroup people-only"><h3>h-index</h3><div class="row2"><label for="f-hs" class="sr-only">h-index source</label><select id="f-hs" class="sel"><option value="sc">Scopus</option><option value="gs">Google Scholar</option></select>' +
@@ -224,7 +225,7 @@
     });
     if ($('#f-ttl') && $('#f-ttl').value !== ttlFind) $('#f-ttl').value = ttlFind;
     titleTools();
-    $('#f-st').value = S.st; $('#f-len').value = S.len; $('#f-hs').value = S.hs; $('#f-hmin').value = S.hmin; $('#f-hmax').value = S.hmax; $('#f-hp').value = S.hp;
+    $('#f-st').value = S.st; $('#f-hs').value = S.hs; $('#f-hmin').value = S.hmin; $('#f-hmax').value = S.hmax; $('#f-hp').value = S.hp;
     if ($('#q').value !== S.q) $('#q').value = S.q;
     const people = S.view === 'people';
     document.querySelectorAll('.people-only').forEach((g) => g.classList.toggle('hidden-by-view', !people));
@@ -254,7 +255,6 @@
         return changed();
       }
       if (e.target.id === 'f-st') S.st = e.target.value;
-      if (e.target.id === 'f-len') S.len = e.target.value;
       if (e.target.id === 'f-hs') S.hs = e.target.value;
       if (e.target.id === 'f-hp') S.hp = e.target.value;
       changed();
@@ -330,8 +330,8 @@
   }
 
   /* ---------------------------------------------------------------- state <-> hash */
-  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg'];
-  const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'len', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf', 'g', 'si'];
+  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg', 'len'];
+  const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf', 'g', 'si'];
   function listHash() {
     const u = new URLSearchParams();
     STR.forEach((k) => { if (S[k] !== DEFAULT[k] && S[k] !== '') u.set(k, S[k]); });
@@ -404,10 +404,10 @@
     if (S.st && p.state !== S.st) return false;
     if (S.own.length && S.own.indexOf(p.ownIdx) < 0) return false;
     if (S.staff.length && S.staff.indexOf(p.staffIdx) < 0) return false;
-    if (S.len && String(p.length) !== S.len) return false;
+    if (S.len.length && S.len.indexOf(p.length) < 0) return false;
     return true;
   }
-  function progFilterActive() { return S.type.length || S.chair.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.len; }
+  function progFilterActive() { return S.type.length || S.chair.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.len.length; }
   function computeMatches() {
     const toks = tokens();
     matchP = []; P.forEach((p) => { if (progOK(p, true) && textOK(p.hay, toks)) matchP.push(p.i); });
@@ -447,7 +447,7 @@
     if (S.do) out.push(['do', 'DO origin: ' + tl[S.do]]);
     S.era.forEach((v) => out.push(['era:' + v, 'Accredited: ' + ERAS[v]]));
     if (S.st) out.push(['st', 'State: ' + S.st]);
-    if (S.len) out.push(['len', S.len + '-year programs']);
+    S.len.forEach((v) => out.push(['len:' + v, v + '-year programs']));
     S.own.forEach((v) => out.push(['own:' + v, 'Ownership: ' + OWN[v]]));
     S.staff.forEach((v) => out.push(['staff:' + v, 'Staffing: ' + STAFF[v]]));
     S.rank.forEach((v) => out.push(['rank:' + v, RANKS[v]]));
@@ -733,7 +733,7 @@
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
       ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
       '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Normalized rank title, department/program described title, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
-      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (normalized rank title, department/program described title, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
+      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (normalized rank title, department/program described title, leadership role, program type, program length, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
       '<h3>Definitions</h3><dl>' +
       '<dt>Normalized rank title</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor, as analyzed in the paper. Modifiers such as clinical, adjunct, or research are set aside, so a clinical assistant professor counts as an assistant professor. No rank means none was published.</dd>' +
       '<dt>Department/program described title</dt><dd>The academic title exactly as the department or program describes it, before normalization: for example Clinical Assistant Professor, Assistant Clinical Professor, Assistant Professor of Clinical Emergency Medicine, or Health Sciences Assistant Clinical Professor. In some departments these titles mark a distinct track, with different expectations for scholarship and promotion, so this filter lets you explore them directly; type part of a title to find its variants, then tick them one by one or select all shown. Faculty with no published rank have no described title. Where the described title differs from the plain rank, it appears beneath the normalized rank in the People table.</dd>' +
@@ -785,7 +785,7 @@
   }
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
-  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
+  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'], ['length', 'Program length'],
     ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
@@ -800,6 +800,7 @@
     if (S.rank.length >= 2) return 'rank';
     if (S.role.length >= 2) return 'role';
     if (S.type.length >= 2) return 'type';
+    if (S.len.length >= 2) return 'length';
     if (S.era.length >= 2) return 'era';
     if (S.rank.length === 1) return 'type';
     return 'rank';
@@ -834,6 +835,7 @@
       return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k }));
     }
     if (dim === 'era') return pick(S.era, ERAS.map((_, k) => k)).map((k) => ({ label: ERAS[k], test: (f) => first(f).eraIdx === k }));
+    if (dim === 'length') return pick(S.len, [3, 4]).map((k) => ({ label: k + '-year programs', fig: k + '-year', csv: k + '-year programs', test: (f) => first(f).length === k }));
     if (dim === 'origin') { const dO = (f) => f.progs.some((pi) => P[pi].doOrigin); return [{ label: 'DO-origin program', test: (f) => dO(f) }, { label: 'Allopathic-origin program', test: (f) => !dO(f) }]; }
     if (dim === 'program') {
       const picked = S.view === 'programs' && S.pk.length > 0;
@@ -891,7 +893,7 @@
     $('#sum-note').textContent = (dim === 'role' && broke ? 'Leadership groups can overlap: a faculty member with two titles counts in both. ' : '') +
       (dim === 'program' && broke ? 'Faculty listed by more than one of these programs count in each. ' + (defs.capped ? 'Showing the ' + MAXG + ' programs with the most faculty records, of ' + fmt(defs.capped) + '; tick programs in the table to choose which ones are compared. ' : '') : '') +
       (dim === 'title' && defs.capped ? 'Showing the ' + MAXT + ' most common described titles in this selection, of ' + fmt(defs.capped) + (S.title.length ? ' selected' : '') + '; tick up to ' + MAXT + ' titles under Department/program described title to choose which ones are compared. ' : '') +
-      (dim === 'type' || dim === 'era' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
+      (dim === 'type' || dim === 'era' || dim === 'length' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
       'IQR is the 25th to 75th percentile. Faculty without a matched ' + (key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0, as in the study.';
     const has0 = rows.length > 0;
     $('#sum-empty').hidden = has0; $('#sum-fig').hidden = !has0; $('#sum-table-wrap').hidden = !has0;

@@ -286,3 +286,4 @@ table.data td.w-rank .sub { max-width: 240px; }
 .fgroup.farea > h3 { color: var(--text); }
 .fgroup.farea .check:hover { background: var(--surface); }
 .fgroup.farea .ttl-list { background: var(--surface); }
+#f-st { flex: 1 1 100%; }
