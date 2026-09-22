@@ -164,11 +164,11 @@
     const html = [];
     const rc = RANKS.map((_, k) => F.filter((f) => f.rank === k).length);
     const roleN = (id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return F.filter((f) => f.roleMask & (1 << k)).length; };
-    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank, a listed title, a chair, or a role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
-    html.push('<div class="fgroup" id="fg-title"><h3>Listed academic title</h3><p class="hint">The title as each program publishes it, before it is normalized to a rank (' + fmt(TITLES.length) + ' variants). Type to find a title and its variants.</p>' +
-      '<label for="f-ttl" class="sr-only">Find a listed academic title</label><input id="f-ttl" class="sel ttl-find" type="search" autocomplete="off" spellcheck="false" placeholder="Find a title, e.g. clinical assistant">' +
+    html.push('<div class="fgroup farea" id="fg-rank"><h3>Normalized rank title</h3><p class="hint">The rank analyzed in the paper: every published title normalized to instructor, assistant, associate, or full professor, with modifiers such as clinical set aside.</p><p class="hint view-hint" hidden>Selecting a normalized rank, a described title, a chair, or a role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
+    html.push('<div class="fgroup farea" id="fg-title"><h3>Department/program described title</h3><p class="hint">The title exactly as the department or program describes it, before normalization (' + fmt(TITLES.length) + ' variants). Type to find a title and its variants.</p>' +
+      '<label for="f-ttl" class="sr-only">Find a department or program described title</label><input id="f-ttl" class="sel ttl-find" type="search" autocomplete="off" spellcheck="false" placeholder="Find a title, e.g. clinical assistant">' +
       '<div class="ttl-tools"><span class="ttl-count" id="ttl-count" aria-live="polite"></span><button type="button" class="link-btn" id="ttl-all" hidden>Select all shown</button><button type="button" class="link-btn" id="ttl-none" hidden>Clear titles</button></div>' +
-      '<div class="checks ttl-list" data-key="title" id="ttl-list" role="group" aria-label="Listed academic titles"></div></div>');
+      '<div class="checks ttl-list" data-key="title" id="ttl-list" role="group" aria-label="Department or program described titles"></div></div>');
     html.push('<div class="fgroup" id="fg-chair"><h3>Department chair</h3><p class="hint">Academic and hospital chair list the chairs themselves: one designated chair per program, and a few chairs lead more than one program.</p>' +
       checks('role', [['pca', 'Academic chair', roleN('pca')], ['pch', 'Hospital chair', roleN('pch')]]) +
       checks('chair', [['N', 'Programs with no chair identified', cnt((p) => p.chairKey === 'N')]]) + '</div>');
@@ -200,7 +200,7 @@
     const box = $('#ttl-list'); if (!box) return;
     const sel = new Set(S.title), ks = titleMatches();
     box.innerHTML = ks.length ? ks.map((k) => '<label class="check"' + (TITLE_ALT.has(TITLES[k]) ? ' title="Also listed as: ' + esc(TITLE_ALT.get(TITLES[k]).join('; ')) + '"' : '') + '><input type="checkbox" value="' + esc(TITLES[k]) + '"' + (sel.has(TITLES[k]) ? ' checked' : '') + '><span class="lbl">' + esc(TITLES[k]) + '</span><span class="n">' + fmt(TITLE_N.get(TITLES[k])) + '</span></label>').join('') :
-      '<p class="note ttl-none">No listed title matches.</p>';
+      '<p class="note ttl-none">No described title matches.</p>';
     box.dataset.shown = ks.length;
     titleTools(ks);
   }
@@ -244,7 +244,7 @@
       if (box && box.dataset.key === 'title') {
         const t = e.target.value;
         S.title = e.target.checked ? (S.title.indexOf(t) < 0 ? S.title.concat([t]) : S.title) : S.title.filter((x) => x !== t);
-        if (e.target.checked && S.view === 'programs') { S.view = 'people'; toast('Showing people: listed titles select faculty'); return changed(true); }
+        if (e.target.checked && S.view === 'programs') { S.view = 'people'; toast('Showing people: described titles select faculty'); return changed(true); }
         return changed();
       }
       if (box) {
@@ -271,7 +271,7 @@
       if (e.target.closest('#ttl-all')) {
         const add = titleMatches().map((k) => TITLES[k]).filter((x) => S.title.indexOf(x) < 0);
         S.title = S.title.concat(add); document.querySelectorAll('#ttl-list input').forEach((i) => { i.checked = true; });
-        if (S.view === 'programs') { S.view = 'people'; toast('Showing people: listed titles select faculty'); return changed(true); }
+        if (S.view === 'programs') { S.view = 'people'; toast('Showing people: described titles select faculty'); return changed(true); }
         return changed();
       }
       if (e.target.closest('#ttl-none')) { S.title = []; changed(); }
@@ -451,8 +451,8 @@
     S.own.forEach((v) => out.push(['own:' + v, 'Ownership: ' + OWN[v]]));
     S.staff.forEach((v) => out.push(['staff:' + v, 'Staffing: ' + STAFF[v]]));
     S.rank.forEach((v) => out.push(['rank:' + v, RANKS[v]]));
-    if (S.title.length <= 3) S.title.forEach((t) => out.push(['ttl:' + TITLES.indexOf(t), 'Title: ' + t]));
-    else out.push(['ttl', 'Titles: ' + S.title.slice(0, 2).join('; ') + '; and ' + fmt(S.title.length - 2) + ' more']);
+    if (S.title.length <= 3) S.title.forEach((t) => out.push(['ttl:' + TITLES.indexOf(t), 'Described title: ' + t]));
+    else out.push(['ttl', 'Described titles: ' + S.title.slice(0, 2).join('; ') + '; and ' + fmt(S.title.length - 2) + ' more']);
     S.role.forEach((v) => out.push(['role:' + v, (ROLE_GROUPS.find((g) => g.id === v) || { label: v }).label]));
     S.deg.forEach((v) => out.push(['deg:' + v, (DEGS.find((d) => d[0] === v) || [, v])[1]]));
     if (S.hmin !== '' || S.hmax !== '') out.push(['h', (S.hs === 'gs' ? 'Scholar' : 'Scopus') + ' h ' + (S.hmin !== '' && S.hmax !== '' ? (S.hmin === S.hmax ? '= ' + S.hmin : S.hmin + '–' + S.hmax) : (S.hmin !== '' ? '≥ ' + S.hmin : '≤ ' + S.hmax))]);
@@ -485,7 +485,7 @@
   const FCOLS = [
     { k: 'name', t: 'Name', cls: '' },
     { k: 'program', t: 'Program', cls: '' },
-    { k: 'rank', t: 'Rank', cls: '' },
+    { k: 'rank', t: 'Normalized rank', cls: '' },
     { k: 'role', t: 'Role', cls: 'col-opt' },
     { k: 'sc', t: 'Scopus h', cls: 'num', dir: 'desc' },
     { k: 'gs', t: 'Scholar h', cls: 'num', dir: 'desc' },
@@ -521,7 +521,7 @@
     const people = S.view === 'people';
     const chips = activeFilters();
     $('#chips').innerHTML = chips.map(([k, l]) => '<span class="chip">' + esc(l) + '<button type="button" data-rm="' + esc(k) + '" aria-label="Remove filter ' + esc(l) + '">&times;</button></span>').join('') +
-      (!people && chips.some(([k]) => /^(rank|ttl|role|deg|h|hp)/.test(k)) ? '<span class="note">Rank, listed title, department chair, leadership role, degree, and h-index filters select faculty, so they apply in the People view.</span>' : '');
+      (!people && chips.some(([k]) => /^(rank|ttl|role|deg|h|hp)/.test(k)) ? '<span class="note">Normalized rank, described title, department chair, leadership role, degree, and h-index filters select faculty, so they apply in the People view.</span>' : '');
     const qt = tokens(), notes = qt.length ? P.filter((p) => p.searchNote && p.keys.some((k) => qt.indexOf(k) >= 0)) : [];
     $('#search-note').hidden = !notes.length;
     $('#search-note').innerHTML = notes.map((p) => esc(p.searchNote) + ' <a href="#/program/' + p.id + '">Open the ' + esc(p.name) + ' program</a>.').join('<br>');
@@ -533,7 +533,7 @@
       $('#result-count').textContent = fmt(rows.length) + (rows.length === 1 ? ' faculty record' : ' faculty records');
       $('#result-summary').textContent = rows.length ? 'Median Scopus h ' + fmtQ(quantile(sc, 0.5)) + ' (IQR ' + fmtQ(quantile(sc, 0.25)) + '–' + fmtQ(quantile(sc, 0.75)) + ') · ' + pct(nr, rows.length) + ' no rank · at ' + fmt(np.size) + (np.size === 1 ? ' program' : ' programs') : '';
       sortPeople(rows); $('#table').dataset.rows = rows.length; renderHead(FCOLS, S.sf, S.df); curRows = rows;
-      $('#table-note').innerHTML = 'Tick the box beside a person to limit the summary below to the people you pick. Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study. Blue Ridge shows the rank of the faculty member’s medical school in the FY2025 NIH ranking of EM departments.';
+      $('#table-note').innerHTML = 'Tick the box beside a person to limit the summary below to the people you pick. Beneath the normalized rank, the department or program described title is shown where it differs. Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study. Blue Ridge shows the rank of the faculty member’s medical school in the FY2025 NIH ranking of EM departments.';
     } else {
       const rows = matchP.map((k) => P[k]);
       const uf = new Set(); rows.forEach((p) => p.fac.forEach((k) => uf.add(k))); const nfac = uf.size;
@@ -671,7 +671,7 @@
       fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '')) + fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : '')) +
       fact('Corporate ties', esc(p.corpRel)) + fact('Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
       '</dl></div>' +
-      '<div class="two"><div class="card"><h3>Academic rank</h3>' + bars(RANKS, p.rankN, p.n) + '</div><div class="card"><h3>Scopus h-index</h3>' + bars(HB.map((b) => b[2]), p.hBands, p.n) +
+      '<div class="two"><div class="card"><h3>Normalized rank title</h3>' + bars(RANKS, p.rankN, p.n) + '</div><div class="card"><h3>Scopus h-index</h3>' + bars(HB.map((b) => b[2]), p.hBands, p.n) +
       '<p class="note">Mean ' + fmtQ(p.meanSc) + ' · ' + pct(Math.round(p.ge10 * p.n), p.n, 0) + ' with h ≥ 10 · ' + pct(Math.round(p.doShare * p.n), p.n, 0) + ' DO-only degree</p></div></div>' +
       '<div class="card"><h3>Faculty (' + fmt(p.n) + ')</h3><div class="table-wrap" style="max-height:none"><table class="data" data-prog="' + p.id + '" data-sort="rank" data-dir="-1"><thead></thead><tbody data-rows></tbody></table></div>' +
       '<p class="note">Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study.</p></div>';
@@ -712,7 +712,7 @@
       '<div class="stats three">' + stat(hVal(f.sc, f.scb), 'Scopus h-index') + stat(hVal(f.gs, f.gsb), 'Google Scholar h-index') + stat(f.brr != null ? '#' + f.brr : '—', 'Blue Ridge rank of institution (FY2025)') + '</div>' +
       '<div class="card"><h3>Appointment</h3><dl class="facts">' +
       fact('Program', pr.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a><span class="sub">' + esc(x.city) + ', ' + esc(x.state) + '</span>').join('')) +
-      fact('Institution', esc(f.inst)) + fact('Academic rank', esc(RANKS[f.rank]) + (f.title && norm(f.title) !== norm(RANKS[f.rank]) && f.title !== 'No Rank' ? '<span class="sub">Listed title: ' + esc(f.title) + '</span>' : '')) +
+      fact('Institution', esc(f.inst)) + fact('Normalized rank title', esc(RANKS[f.rank])) + fact('Department/program described title', f.title && f.title !== 'No Rank' ? esc(f.title) : '<span class="dash">None published</span>') +
       fact('Department role', esc(roleText(f))) + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
       '</dl></div>' +
       '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + '</dl><p class="note">Values collected ' + esc(META.hDates) + '.</p></div>' +
@@ -732,11 +732,11 @@
     return '<p class="d-kicker">About</p><h2 class="d-title" id="panel-title">About the data</h2><div class="prose">' +
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
       ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
-      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank, listed academic title, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
-      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, listed academic title, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
+      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Normalized rank title, department/program described title, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
+      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (normalized rank title, department/program described title, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
       '<h3>Definitions</h3><dl>' +
-      '<dt>Academic rank</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor. No rank means none was published.</dd>' +
-      '<dt>Listed academic title</dt><dd>The academic title exactly as the program or school publishes it, before normalization: for example Clinical Assistant Professor, Assistant Clinical Professor, Assistant Professor of Clinical Emergency Medicine, or Health Sciences Assistant Clinical Professor. The Listed academic title filter selects these titles directly; type part of a title to find its variants, then tick them one by one or select all shown. Faculty with no published rank have no listed title. Where the listed title differs from the plain rank, it appears under the rank in the People table.</dd>' +
+      '<dt>Normalized rank title</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor, as analyzed in the paper. Modifiers such as clinical, adjunct, or research are set aside, so a clinical assistant professor counts as an assistant professor. No rank means none was published.</dd>' +
+      '<dt>Department/program described title</dt><dd>The academic title exactly as the department or program describes it, before normalization: for example Clinical Assistant Professor, Assistant Clinical Professor, Assistant Professor of Clinical Emergency Medicine, or Health Sciences Assistant Clinical Professor. In some departments these titles mark a distinct track, with different expectations for scholarship and promotion, so this filter lets you explore them directly; type part of a title to find its variants, then tick them one by one or select all shown. Faculty with no published rank have no described title. Where the described title differs from the plain rank, it appears beneath the normalized rank in the People table.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
       '<dt>AAU</dt><dd>The sponsor or primary teaching site is a US member of the Association of American Universities, or a hospital whose EM residency is affiliated with one. Forty affiliated programs that the senior author judged not part of an AAU member institution carry no AAU marker (review of September 21, 2026); the program page says so under AAU.</dd>' +
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
@@ -785,7 +785,7 @@
   }
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
-  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['title', 'Listed academic title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
+  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
     ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
@@ -890,7 +890,7 @@
     $('#sum-thead').innerHTML = '<tr><th scope="col">Group</th><th scope="col" class="num">n</th><th scope="col" class="num">Mean h</th><th scope="col" class="num">Median h</th><th scope="col" class="num">IQR</th></tr>';
     $('#sum-note').textContent = (dim === 'role' && broke ? 'Leadership groups can overlap: a faculty member with two titles counts in both. ' : '') +
       (dim === 'program' && broke ? 'Faculty listed by more than one of these programs count in each. ' + (defs.capped ? 'Showing the ' + MAXG + ' programs with the most faculty records, of ' + fmt(defs.capped) + '; tick programs in the table to choose which ones are compared. ' : '') : '') +
-      (dim === 'title' && defs.capped ? 'Showing the ' + MAXT + ' most common listed titles in this selection, of ' + fmt(defs.capped) + (S.title.length ? ' selected' : '') + '; tick up to ' + MAXT + ' titles under Listed academic title to choose which ones are compared. ' : '') +
+      (dim === 'title' && defs.capped ? 'Showing the ' + MAXT + ' most common described titles in this selection, of ' + fmt(defs.capped) + (S.title.length ? ' selected' : '') + '; tick up to ' + MAXT + ' titles under Department/program described title to choose which ones are compared. ' : '') +
       (dim === 'type' || dim === 'era' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
       'IQR is the 25th to 75th percentile. Faculty without a matched ' + (key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0, as in the study.';
     const has0 = rows.length > 0;
@@ -1012,7 +1012,7 @@
     toast('Exported ' + fmt(rows.length) + ' rows');
   }
   function exportPeople(rows, name) {
-    const H = ['Record ID', 'First name', 'Last name', 'Listed credentials', 'Degree', 'Program(s)', 'ACGME program ID(s)', 'Program state(s)', 'Program type(s)', 'Institution', 'Academic rank', 'Listed academic title',
+    const H = ['Record ID', 'First name', 'Last name', 'Listed credentials', 'Degree', 'Program(s)', 'ACGME program ID(s)', 'Program state(s)', 'Program type(s)', 'Institution', 'Normalized rank title', 'Department/program described title',
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
       'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source'];

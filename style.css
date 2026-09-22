@@ -279,3 +279,10 @@ table.data tbody tr.picked:hover td { background: var(--green-tint-2); }
 .ttl-list .ttl-none { margin: 4px; }
 table.data td.w-rank { min-width: 165px; }
 table.data td.w-rank .sub { max-width: 240px; }
+/* the two title filters are separate areas: normalized rank title and department/program described title */
+.fgroup.farea { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px 12px 8px; margin: 10px 0 12px; }
+.fgroup.farea:first-child { margin-top: 2px; }
+.fgroup.farea + .fgroup:not(.farea) { border-top: 0; padding-top: 4px; }
+.fgroup.farea > h3 { color: var(--text); }
+.fgroup.farea .check:hover { background: var(--surface); }
+.fgroup.farea .ttl-list { background: var(--surface); }
