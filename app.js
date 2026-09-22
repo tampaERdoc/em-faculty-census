@@ -56,9 +56,12 @@
   const DEGS = [[1, 'MD (incl. MBBS/MBChB)'], [2, 'DO'], [4, 'PhD or other research doctorate'], [8, 'Non-physician doctorate only'], [16, 'Degree not verified']];
 
   let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [];
+  let TITLES = [], TITLE_HAY = [], TITLE_N = new Map(), TITLE_SET = new Set(), TITLE_ALT = new Map(), TITLE_OF = () => '', ttlFind = ''; // listed (non-normalized) academic titles
+  const MAXT = 15; // most listed titles compared side by side in the summary
+  const PLAIN_TITLES = new Set(['instructor', 'assistant professor', 'associate professor', 'professor', 'full professor']);
   const PID = new Map(), RID = new Map();
   const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: '',
-    rank: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
+    rank: [], title: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
   let matchP = [], matchF = [];
@@ -110,6 +113,14 @@
       return p;
     });
     F.forEach((p) => p.progs.forEach((pi) => { P[pi].fac.push(p.i); if (has(p.tok, 'Program Director')) P[pi].pds.push(p.i); }));
+    // listed titles that differ only in capitalization or spacing are one entry, shown in their most common spelling
+    const tkey = (t) => t.trim().replace(/\s+/g, ' ').replace(/\.$/, '').toLowerCase(), spell = new Map();
+    F.forEach((f) => { if (f.title && f.title !== 'No Rank') { const k = tkey(f.title), m = spell.get(k) || new Map(); m.set(f.title, (m.get(f.title) || 0) + 1); spell.set(k, m); } });
+    const label = new Map(); spell.forEach((m, k) => { const v = Array.from(m.entries()).sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0])); label.set(k, v[0][0]); TITLE_N.set(v[0][0], v.reduce((a, x) => a + x[1], 0)); if (v.length > 1) TITLE_ALT.set(v[0][0], v.slice(1).map((x) => x[0])); });
+    F.forEach((f) => { f.tl = f.title && f.title !== 'No Rank' ? label.get(tkey(f.title)) : ''; });
+    TITLES = Array.from(TITLE_N.keys()).sort((a, b) => TITLE_N.get(b) - TITLE_N.get(a) || collator.compare(a, b));
+    TITLE_SET = new Set(TITLES); TITLE_HAY = TITLES.map((t) => ' ' + norm(t).replace(/[^a-z0-9]+/g, ' ') + ' ');
+    TITLE_OF = (t) => (TITLE_SET.has(t) ? t : label.get(tkey(t)) || '');
     P.forEach((p) => {
       const fac = p.fac.map((k) => F[k]);
       const sc = fac.map((f) => f.sc).sort((a, b) => a - b), gs = fac.map((f) => f.gs).sort((a, b) => a - b);
@@ -153,7 +164,11 @@
     const html = [];
     const rc = RANKS.map((_, k) => F.filter((f) => f.rank === k).length);
     const roleN = (id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return F.filter((f) => f.roleMask & (1 << k)).length; };
-    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank, a chair, or a role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
+    html.push('<div class="fgroup"><h3>Academic rank</h3><p class="hint view-hint" hidden>Selecting a rank, a listed title, a chair, or a role lists the matching faculty (People).</p>' + checks('rank', RANKS.map((r, k) => [k, r, rc[k]])) + '</div>');
+    html.push('<div class="fgroup" id="fg-title"><h3>Listed academic title</h3><p class="hint">The title as each program publishes it, before it is normalized to a rank (' + fmt(TITLES.length) + ' variants). Type to find a title and its variants.</p>' +
+      '<label for="f-ttl" class="sr-only">Find a listed academic title</label><input id="f-ttl" class="sel ttl-find" type="search" autocomplete="off" spellcheck="false" placeholder="Find a title, e.g. clinical assistant">' +
+      '<div class="ttl-tools"><span class="ttl-count" id="ttl-count" aria-live="polite"></span><button type="button" class="link-btn" id="ttl-all" hidden>Select all shown</button><button type="button" class="link-btn" id="ttl-none" hidden>Clear titles</button></div>' +
+      '<div class="checks ttl-list" data-key="title" id="ttl-list" role="group" aria-label="Listed academic titles"></div></div>');
     html.push('<div class="fgroup" id="fg-chair"><h3>Department chair</h3><p class="hint">Academic and hospital chair list the chairs themselves: one designated chair per program, and a few chairs lead more than one program.</p>' +
       checks('role', [['pca', 'Academic chair', roleN('pca')], ['pch', 'Hospital chair', roleN('pch')]]) +
       checks('chair', [['N', 'Programs with no chair identified', cnt((p) => p.chairKey === 'N')]]) + '</div>');
@@ -175,6 +190,28 @@
       '<p class="fsub">Profile</p><div class="row2"><label for="f-hp" class="sr-only">Profile status</label><select id="f-hp" class="sel"><option value="">Any</option><option value="obs">Matched profile (observed value)</option><option value="zero">No matched profile (counted as 0)</option></select></div></div>');
     html.push('<div class="fgroup people-only"><h3>Degree</h3>' + checks('deg', DEGS.map(([b, l]) => [b, l, F.filter((f) => f.degF & b).length])) + '</div>');
     $('#filter-groups').innerHTML = html.join('');
+    renderTitleList();
+  }
+  function titleMatches() {
+    const toks = norm(ttlFind).split(/[^a-z0-9]+/).filter(Boolean);
+    return TITLES.map((_, k) => k).filter((k) => toks.every((w) => TITLE_HAY[k].indexOf(' ' + w) >= 0));
+  }
+  function renderTitleList() {
+    const box = $('#ttl-list'); if (!box) return;
+    const sel = new Set(S.title), ks = titleMatches();
+    box.innerHTML = ks.length ? ks.map((k) => '<label class="check"' + (TITLE_ALT.has(TITLES[k]) ? ' title="Also listed as: ' + esc(TITLE_ALT.get(TITLES[k]).join('; ')) + '"' : '') + '><input type="checkbox" value="' + esc(TITLES[k]) + '"' + (sel.has(TITLES[k]) ? ' checked' : '') + '><span class="lbl">' + esc(TITLES[k]) + '</span><span class="n">' + fmt(TITLE_N.get(TITLES[k])) + '</span></label>').join('') :
+      '<p class="note ttl-none">No listed title matches.</p>';
+    box.dataset.shown = ks.length;
+    titleTools(ks);
+  }
+  function titleTools(ks) {
+    ks = ks || titleMatches();
+    const finding = ttlFind.trim() !== '', recs = ks.reduce((a, k) => a + TITLE_N.get(TITLES[k]), 0);
+    $('#ttl-count').textContent = (finding ? fmt(ks.length) + (ks.length === 1 ? ' title matches' : ' titles match') + ' (' + fmt(recs) + ' records)' : fmt(TITLES.length) + ' titles, most common first') +
+      (S.title.length ? ' · ' + fmt(S.title.length) + ' selected' : '');
+    const all = $('#ttl-all'), none = $('#ttl-none'), unsel = ks.filter((k) => S.title.indexOf(TITLES[k]) < 0).length;
+    all.hidden = !finding || !unsel; all.textContent = 'Select all ' + fmt(ks.length) + ' shown';
+    none.hidden = !S.title.length;
   }
 
   function syncFilterUI() {
@@ -185,6 +222,8 @@
     document.querySelectorAll('.seg[data-key]').forEach((seg) => {
       seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === S[seg.dataset.key])));
     });
+    if ($('#f-ttl') && $('#f-ttl').value !== ttlFind) $('#f-ttl').value = ttlFind;
+    titleTools();
     $('#f-st').value = S.st; $('#f-len').value = S.len; $('#f-hs').value = S.hs; $('#f-hmin').value = S.hmin; $('#f-hmax').value = S.hmax; $('#f-hp').value = S.hp;
     if ($('#q').value !== S.q) $('#q').value = S.q;
     const people = S.view === 'people';
@@ -201,7 +240,13 @@
     document.querySelectorAll('.view-switch button').forEach((b) => b.addEventListener('click', () => { if (S.view !== b.dataset.view) { S.view = b.dataset.view; changed(true); } }));
     $('#filter-groups').addEventListener('change', (e) => {
       const box = e.target.closest('.checks[data-key]');
-      if (e.target.id === 'f-hmin' || e.target.id === 'f-hmax') return;
+      if (e.target.id === 'f-hmin' || e.target.id === 'f-hmax' || e.target.id === 'f-ttl') return;
+      if (box && box.dataset.key === 'title') {
+        const t = e.target.value;
+        S.title = e.target.checked ? (S.title.indexOf(t) < 0 ? S.title.concat([t]) : S.title) : S.title.filter((x) => x !== t);
+        if (e.target.checked && S.view === 'programs') { S.view = 'people'; toast('Showing people: listed titles select faculty'); return changed(true); }
+        return changed();
+      }
       if (box) {
         const key = box.dataset.key;
         S[key] = Array.from(document.querySelectorAll('#filter-groups .checks[data-key="' + key + '"] input:checked')).map((i) => (['role', 'chair'].indexOf(key) >= 0 ? i.value : Number(i.value)));
@@ -216,14 +261,22 @@
     });
     $('#filter-groups').addEventListener('input', (e) => {
       if (e.target.id === 'f-hmin' || e.target.id === 'f-hmax') { clearTimeout(t); t = setTimeout(() => { S.hmin = cleanNum($('#f-hmin').value); S.hmax = cleanNum($('#f-hmax').value); changed(); }, 250); }
+      if (e.target.id === 'f-ttl') { ttlFind = e.target.value; renderTitleList(); }
     });
     $('#filter-groups').addEventListener('click', (e) => {
       const b = e.target.closest('.seg button');
       if (b) { S[b.parentElement.dataset.key] = b.dataset.v; return changed(); }
       const pr = e.target.closest('#h-presets button');
       if (pr) { S.hmin = pr.dataset.min; S.hmax = pr.dataset.max; changed(); }
+      if (e.target.closest('#ttl-all')) {
+        const add = titleMatches().map((k) => TITLES[k]).filter((x) => S.title.indexOf(x) < 0);
+        S.title = S.title.concat(add); document.querySelectorAll('#ttl-list input').forEach((i) => { i.checked = true; });
+        if (S.view === 'programs') { S.view = 'people'; toast('Showing people: listed titles select faculty'); return changed(true); }
+        return changed();
+      }
+      if (e.target.closest('#ttl-none')) { S.title = []; changed(); }
     });
-    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si, pk: S.pk, pf: S.pf }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); changed(); });
+    $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si, pk: S.pk, pf: S.pf }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); ttlFind = ''; renderTitleList(); changed(); });
     $('#filters-toggle').addEventListener('click', () => toggleFilters(true));
     $('#filters-close').addEventListener('click', () => toggleFilters(false));
     document.addEventListener('keydown', (e) => {
@@ -283,6 +336,7 @@
     const u = new URLSearchParams();
     STR.forEach((k) => { if (S[k] !== DEFAULT[k] && S[k] !== '') u.set(k, S[k]); });
     ARR.forEach((k) => { if (S[k].length) u.set(k, S[k].join('.')); });
+    if (S.title.length) u.set('ti', S.title.join('|'));
     if (S.pk.length) u.set('pk', S.pk.join('.')); if (S.pf.length) u.set('pf', S.pf.join('.'));
     if (S.dp !== 1) u.set('dp', S.dp); if (S.df !== 1) u.set('df', S.df);
     const qs = u.toString();
@@ -299,6 +353,7 @@
     const oldChair = s.chair.filter((v) => v === 'A' || v === 'H');
     if (oldChair.length) { oldChair.forEach((v) => { const id = v === 'A' ? 'pca' : 'pch'; if (s.role.indexOf(id) < 0) s.role.push(id); }); s.view = 'people'; }
     s.chair = s.chair.filter((v) => v === 'N');
+    s.title = uniq((u.get('ti') || '').split('|').map((t) => TITLE_OF(t)).filter(Boolean));
     s.pk = uniq((u.get('pk') || '').split('.').filter((id) => PID.has(id)));
     s.pf = uniq((u.get('pf') || '').split('.').filter((id) => RID.has(id)));
     if (!GROUP_DIMS.some((d) => d[0] === s.g)) s.g = '';
@@ -358,7 +413,7 @@
     matchP = []; P.forEach((p) => { if (progOK(p, true) && textOK(p.hay, toks)) matchP.push(p.i); });
     const pOK = P.map((p) => progOK(p, false)), anyProg = progFilterActive();
     const roleBits = S.role.reduce((m, id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return k >= 0 ? m | (1 << k) : m; }, 0);
-    const degBits = S.deg.reduce((m, b) => m | b, 0);
+    const degBits = S.deg.reduce((m, b) => m | b, 0), tset = S.title.length ? new Set(S.title) : null;
     const hmin = S.hmin === '' ? null : Number(S.hmin), hmax = S.hmax === '' ? null : Number(S.hmax);
     matchF = [];
     for (let k = 0; k < F.length; k++) {
@@ -367,6 +422,7 @@
       if (!triOK(f.aau, S.aau) || !triOK(f.viz === 1, S.viz) || !triOK(f.brr != null, S.br)) continue;
       if (S.pheno.length && S.pheno.indexOf(f.phenoIdx) < 0) continue;
       if (S.rank.length && S.rank.indexOf(f.rank) < 0) continue;
+      if (tset && !tset.has(f.tl)) continue;
       if (roleBits && !(f.roleMask & roleBits)) continue;
       if (degBits && !(f.degF & degBits)) continue;
       const hv = S.hs === 'gs' ? f.gs : f.sc, hb = S.hs === 'gs' ? f.gsb : f.scb;
@@ -395,6 +451,8 @@
     S.own.forEach((v) => out.push(['own:' + v, 'Ownership: ' + OWN[v]]));
     S.staff.forEach((v) => out.push(['staff:' + v, 'Staffing: ' + STAFF[v]]));
     S.rank.forEach((v) => out.push(['rank:' + v, RANKS[v]]));
+    if (S.title.length <= 3) S.title.forEach((t) => out.push(['ttl:' + TITLES.indexOf(t), 'Title: ' + t]));
+    else out.push(['ttl', 'Titles: ' + S.title.slice(0, 2).join('; ') + '; and ' + fmt(S.title.length - 2) + ' more']);
     S.role.forEach((v) => out.push(['role:' + v, (ROLE_GROUPS.find((g) => g.id === v) || { label: v }).label]));
     S.deg.forEach((v) => out.push(['deg:' + v, (DEGS.find((d) => d[0] === v) || [, v])[1]]));
     if (S.hmin !== '' || S.hmax !== '') out.push(['h', (S.hs === 'gs' ? 'Scholar' : 'Scopus') + ' h ' + (S.hmin !== '' && S.hmax !== '' ? (S.hmin === S.hmax ? '= ' + S.hmin : S.hmin + '–' + S.hmax) : (S.hmin !== '' ? '≥ ' + S.hmin : '≤ ' + S.hmax))]);
@@ -403,6 +461,7 @@
   }
   function removeFilter(key) {
     const [k, v] = key.split(':');
+    if (k === 'ttl') { S.title = v === undefined ? [] : S.title.filter((t) => t !== TITLES[Number(v)]); document.querySelectorAll('#ttl-list input').forEach((i) => { i.checked = S.title.indexOf(i.value) >= 0; }); return changed(); }
     if (v !== undefined) S[k] = S[k].filter((x) => String(x) !== v);
     else if (k === 'h') { S.hmin = ''; S.hmax = ''; }
     else S[k] = DEFAULT[k];
@@ -453,6 +512,7 @@
     }[k] || ((a, b) => collator.compare(a.sortName, b.sortName));
     return arr.sort((a, b) => key(a, b) || collator.compare(a.sortName, b.sortName));
   }
+  const titleSub = (f) => (f.title && f.title !== 'No Rank' && !PLAIN_TITLES.has(norm(f.title)) ? '<span class="sub">' + esc(f.title) + '</span>' : '');
   function roleText(f) { const t = f.tok.filter((x) => x !== 'Faculty'); return t.length ? t.join('; ') : 'Faculty'; }
   function render() {
     computeMatches();
@@ -461,7 +521,7 @@
     const people = S.view === 'people';
     const chips = activeFilters();
     $('#chips').innerHTML = chips.map(([k, l]) => '<span class="chip">' + esc(l) + '<button type="button" data-rm="' + esc(k) + '" aria-label="Remove filter ' + esc(l) + '">&times;</button></span>').join('') +
-      (!people && chips.some(([k]) => /^(rank|role|deg|h|hp)/.test(k)) ? '<span class="note">Rank, department chair, leadership role, degree, and h-index filters select faculty, so they apply in the People view.</span>' : '');
+      (!people && chips.some(([k]) => /^(rank|ttl|role|deg|h|hp)/.test(k)) ? '<span class="note">Rank, listed title, department chair, leadership role, degree, and h-index filters select faculty, so they apply in the People view.</span>' : '');
     const qt = tokens(), notes = qt.length ? P.filter((p) => p.searchNote && p.keys.some((k) => qt.indexOf(k) >= 0)) : [];
     $('#search-note').hidden = !notes.length;
     $('#search-note').innerHTML = notes.map((p) => esc(p.searchNote) + ' <a href="#/program/' + p.id + '">Open the ' + esc(p.name) + ' program</a>.').join('<br>');
@@ -524,7 +584,7 @@
     const pr = f.progs.map((k) => P[k]);
     const prog = pr.length ? '<a class="plink" href="#/program/' + pr[0].id + '">' + esc(pr[0].name) + '</a>' + (pr.length > 1 ? '<span class="sub">+' + (pr.length - 1) + ' more</span>' : '<span class="sub">' + esc(pr[0].city) + ', ' + esc(pr[0].state) + '</span>') : '';
     return '<tr data-href="#/person/' + encodeURIComponent(f.rid) + '" tabindex="0">' + pickCell(f.rid, f.name) + '<td class="w-name"><a class="rowlink" href="#/person/' + encodeURIComponent(f.rid) + '">' + esc(f.name) + '</a>' + (f.cred ? '<span class="sub">' + esc(f.cred) + '</span>' : '') + '</td>' +
-      '<td class="w-prog">' + prog + '</td><td>' + esc(RANKS[f.rank]) + '</td><td class="col-opt">' + esc(roleText(f)) + '</td>' +
+      '<td class="w-prog">' + prog + '</td><td class="w-rank">' + esc(RANKS[f.rank]) + titleSub(f) + '</td><td class="col-opt">' + esc(roleText(f)) + '</td>' +
       '<td class="num">' + hCell(f.sc, f.scb, 'sc') + '</td><td class="num">' + hCell(f.gs, f.gsb, 'gs') + '</td>' +
       '<td class="ctr">' + yes(f.aau) + '</td><td class="ctr">' + (f.viz === 1 ? '<span class="yes">Yes</span>' : f.viz === 2 ? '<span class="dash" title="Unresolved">?</span>' : '<span class="dash">—</span>') + '</td><td class="ctr">' + brCell(f.brr) + '</td></tr>';
   }
@@ -627,7 +687,7 @@
       aau: (a, b) => a.aau - b.aau, viz: (a, b) => (a.viz === 1) - (b.viz === 1), br: (a, b) => (a.brr == null ? 999 : a.brr) - (b.brr == null ? 999 : b.brr) }[k];
     rows.sort((a, b) => d * cmp(a, b) || collator.compare(a.sortName, b.sortName));
     tbl.querySelector('thead').innerHTML = '<tr>' + PF.map(([c, t, dir, cls]) => '<th scope="col" class="' + (cls || '') + (c === 'role' ? ' col-opt' : '') + '"' + (c === k ? ' aria-sort="' + (d === 1 ? 'ascending' : 'descending') + '"' : '') + '><button type="button" data-psort="' + c + '"' + (dir ? ' data-dir="' + dir + '"' : '') + '>' + t + '<span class="arrow" aria-hidden="true">' + (c === k ? (d === 1 ? '▲' : '▼') : '↕') + '</span></button></th>').join('') + '</tr>';
-    tbl.querySelector('tbody').innerHTML = rows.map((f) => '<tr data-href="#/person/' + encodeURIComponent(f.rid) + '"><td><a class="rowlink" href="#/person/' + encodeURIComponent(f.rid) + '">' + esc(f.name) + '</a>' + (f.cred ? '<span class="sub">' + esc(f.cred) + '</span>' : '') + '</td><td>' + esc(RANKS[f.rank]) + '</td><td class="col-opt">' + esc(roleText(f)) + '</td><td class="num">' + hCell(f.sc, f.scb, 'sc') + '</td><td class="num">' + hCell(f.gs, f.gsb, 'gs') + '</td><td class="ctr">' + yes(f.aau) + '</td><td class="ctr">' + (f.viz === 1 ? '<span class="yes">Yes</span>' : '<span class="dash">—</span>') + '</td><td class="ctr">' + brCell(f.brr) + '</td></tr>').join('');
+    tbl.querySelector('tbody').innerHTML = rows.map((f) => '<tr data-href="#/person/' + encodeURIComponent(f.rid) + '"><td><a class="rowlink" href="#/person/' + encodeURIComponent(f.rid) + '">' + esc(f.name) + '</a>' + (f.cred ? '<span class="sub">' + esc(f.cred) + '</span>' : '') + '</td><td class="w-rank">' + esc(RANKS[f.rank]) + titleSub(f) + '</td><td class="col-opt">' + esc(roleText(f)) + '</td><td class="num">' + hCell(f.sc, f.scb, 'sc') + '</td><td class="num">' + hCell(f.gs, f.gsb, 'gs') + '</td><td class="ctr">' + yes(f.aau) + '</td><td class="ctr">' + (f.viz === 1 ? '<span class="yes">Yes</span>' : '<span class="dash">—</span>') + '</td><td class="ctr">' + brCell(f.brr) + '</td></tr>').join('');
     tbl.querySelectorAll('thead button[data-psort]').forEach((btn) => btn.addEventListener('click', () => {
       const kk = btn.dataset.psort; tbl.dataset.dir = tbl.dataset.sort === kk ? -Number(tbl.dataset.dir) : (btn.dataset.dir === 'desc' ? -1 : 1); tbl.dataset.sort = kk; renderFacultyTable(tbl);
     }));
@@ -672,10 +732,11 @@
     return '<p class="d-kicker">About</p><h2 class="d-title" id="panel-title">About the data</h2><div class="prose">' +
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
       ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
-      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
-      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
+      '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Academic rank, listed academic title, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
+      '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (academic rank, listed academic title, leadership role, program type, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
       '<h3>Definitions</h3><dl>' +
       '<dt>Academic rank</dt><dd>The published academic rank, normalized to instructor, assistant, associate, or full professor. No rank means none was published.</dd>' +
+      '<dt>Listed academic title</dt><dd>The academic title exactly as the program or school publishes it, before normalization: for example Clinical Assistant Professor, Assistant Clinical Professor, Assistant Professor of Clinical Emergency Medicine, or Health Sciences Assistant Clinical Professor. The Listed academic title filter selects these titles directly; type part of a title to find its variants, then tick them one by one or select all shown. Faculty with no published rank have no listed title. Where the listed title differs from the plain rank, it appears under the rank in the People table.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
       '<dt>AAU</dt><dd>The sponsor or primary teaching site is a US member of the Association of American Universities, or a hospital whose EM residency is affiliated with one. Forty affiliated programs that the senior author judged not part of an AAU member institution carry no AAU marker (review of September 21, 2026); the program page says so under AAU.</dd>' +
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
@@ -724,7 +785,7 @@
   }
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
-  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
+  const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Academic rank'], ['title', 'Listed academic title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'],
     ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
@@ -735,6 +796,7 @@
   let SUM = null;
   function autoGroup() {
     if (S.view === 'programs' && S.pk.length >= 2 && S.pk.length <= MAXG) return 'program';
+    if (S.title.length >= 2 && S.title.length <= MAXT) return 'title';
     if (S.rank.length >= 2) return 'rank';
     if (S.role.length >= 2) return 'role';
     if (S.type.length >= 2) return 'type';
@@ -752,6 +814,16 @@
     const first = (f) => P[f.progs[0]];
     const pick = (sel, all) => (sel.length ? sel.slice().sort((a, b) => a - b) : all);
     if (dim === 'rank') return pick(S.rank, RANKS.map((_, k) => k)).map((k) => ({ label: RANKS[k], test: (f) => f.rank === k }));
+    if (dim === 'title') {
+      const tv = (f) => f.tl || 'No Rank', n = new Map(); rows.forEach((f) => n.set(tv(f), (n.get(tv(f)) || 0) + 1));
+      const byN = (a, b) => (n.get(b) || 0) - (n.get(a) || 0) || (TITLE_N.get(b) || 0) - (TITLE_N.get(a) || 0) || collator.compare(a, b);
+      let ts = S.title.length ? S.title.slice().sort(byN) : Array.from(n.keys()).sort(byN);
+      const total = ts.length, capped = total > MAXT;
+      if (capped) ts = ts.slice(0, MAXT);
+      const out = ts.map((t) => { const l = t === 'No Rank' ? 'No rank published' : t; return { label: l, fig: l, csv: l, test: (f) => tv(f) === t }; });
+      out.capped = capped ? total : 0;
+      return out;
+    }
     if (dim === 'role') {
       const ids = S.role.length ? ROLE_GROUPS.filter((g) => S.role.indexOf(g.id) >= 0).map((g) => g.id) : ROLE_DEFAULT;
       return ids.map((id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return { label: ROLE_GROUPS[k].label, fig: ROLE_GROUPS[k].fig, test: (f) => !!(f.roleMask & (1 << k)) }; });
@@ -792,7 +864,7 @@
       const names = sel.slice(0, 4).map((r) => r.name).join('; ') + (sel.length > 4 ? '; and ' + fmt(sel.length - 4) + ' more' : '');
       return S.view === 'people' ? 'Selected: ' + names : 'Faculty at ' + fmt(sel.length) + ' selected ' + (sel.length === 1 ? 'program' : 'programs') + ': ' + names;
     }
-    const personOnly = /^(rank|role|deg|h|hp)/;
+    const personOnly = /^(rank|ttl|role|deg|h|hp)/;
     const chips = activeFilters().filter(([k]) => S.view === 'people' || !personOnly.test(k)).map(([, l]) => l);
     if (S.q.trim()) chips.unshift('Search “' + S.q.trim() + '”');
     if (S.view === 'people') return chips.length ? chips.join(' · ') : 'All faculty records';
@@ -818,6 +890,7 @@
     $('#sum-thead').innerHTML = '<tr><th scope="col">Group</th><th scope="col" class="num">n</th><th scope="col" class="num">Mean h</th><th scope="col" class="num">Median h</th><th scope="col" class="num">IQR</th></tr>';
     $('#sum-note').textContent = (dim === 'role' && broke ? 'Leadership groups can overlap: a faculty member with two titles counts in both. ' : '') +
       (dim === 'program' && broke ? 'Faculty listed by more than one of these programs count in each. ' + (defs.capped ? 'Showing the ' + MAXG + ' programs with the most faculty records, of ' + fmt(defs.capped) + '; tick programs in the table to choose which ones are compared. ' : '') : '') +
+      (dim === 'title' && defs.capped ? 'Showing the ' + MAXT + ' most common listed titles in this selection, of ' + fmt(defs.capped) + (S.title.length ? ' selected' : '') + '; tick up to ' + MAXT + ' titles under Listed academic title to choose which ones are compared. ' : '') +
       (dim === 'type' || dim === 'era' ? 'Faculty listed by more than one program are grouped by their first-listed program, as in the study. ' : '') + (dim === 'origin' ? 'Faculty listed by more than one program count as DO-origin if any of their programs is, as in the study. ' : '') +
       'IQR is the 25th to 75th percentile. Faculty without a matched ' + (key === 'gs' ? 'Google Scholar' : 'Scopus') + ' profile are counted as 0, as in the study.';
     const has0 = rows.length > 0;
