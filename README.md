@@ -1,6 +1,6 @@
 # EM Faculty Census Explorer
 
-A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,910 faculty-program records, compiled in September 2026.
+A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,907 faculty-program records, compiled in September 2026.
 
 **Live site:** https://tampaerdoc.github.io/em-faculty-census/
 
