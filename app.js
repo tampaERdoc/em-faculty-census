@@ -666,7 +666,7 @@
       fact('Program length', p.length ? p.length + ' years' : '') + fact('Affiliation', esc(p.affil)) + fact('NRMP code', esc(p.nrmp)) +
       '</dl></div>' +
       '<div class="card"><h3>Leadership</h3><dl class="facts">' + fact('Department chair', chairBlock) + fact('Program director', pdBlock) +
-      (p.chairSecondary ? fact('Other chairs', esc(p.chairSecondary)) : '') + '</dl></div>' +
+      (p.chairSecondary ? fact('Other chairs', esc(p.chairSecondary)) : '') + (p.chairNote ? fact('Chair note', noteHTML(p.chairNote)) : '') + '</dl></div>' +
       '<div class="card"><h3>Hospital ownership and ED staffing</h3><dl class="facts">' +
       fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '')) + fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : '')) +
       fact('Corporate ties', esc(p.corpRel)) + fact('Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
@@ -676,6 +676,8 @@
       '<div class="card"><h3>Faculty (' + fmt(p.n) + ')</h3><div class="table-wrap" style="max-height:none"><table class="data" data-prog="' + p.id + '" data-sort="rank" data-dir="-1"><thead></thead><tbody data-rows></tbody></table></div>' +
       '<p class="note">Faint values marked ° are not observed on a matched profile and are counted as 0, as in the study.</p></div>';
   }
+  // a chair note can carry a source URL; link it
+  const noteHTML = (t) => esc(t).replace(/(https?:\/\/[^\s)]+)/g, (u) => '<a href="' + u + '" target="_blank" rel="noopener">' + host(u) + '</a>');
   const stat = (v, k) => '<div class="stat"><div class="v">' + v + '</div><div class="k">' + esc(k) + '</div></div>';
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
   function longDate(iso) { const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
@@ -1032,13 +1034,13 @@
   function exportPrograms(rows, name) {
     const H = ['ACGME program ID', 'Program', 'Sponsor', 'Primary site', 'City', 'State', 'Program length (years)', 'Program type', 'Marker phenotype', 'AAU', 'AAU university(ies)', 'Vizient', 'Blue Ridge ranked',
       'Blue Ridge best rank (FY2025)', 'Blue Ridge institution(s)', 'ACGME accreditation year', 'Accreditation date', 'Accreditation era', 'DO origin', 'Origin', 'Origin basis', 'Former name',
-      'Department chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Program director(s)',
+      'Department chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Chair note', 'Program director(s)',
       'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate ties', 'Classification confidence', 'Ownership source', 'Staffing source', 'Affiliation', 'NRMP code',
       'Faculty records', 'No rank (n)', 'No rank (%)', 'Instructor (n)', 'Assistant professor (n)', 'Associate professor (n)', 'Full professor (n)', 'Emeritus (n)', 'Other title (n)',
       'Median Scopus h', 'Scopus h Q1', 'Scopus h Q3', 'Mean Scopus h', 'Scopus h >= 10 (%)', 'Median Google Scholar h', 'DO-only degree share (%)'];
     const out = rows.map((p) => [p.id, p.name, p.sponsor, p.site, p.city, p.state, p.length, TYPES[p.typeIdx], p.pheno, p.aau ? 'Yes' : 'No', p.aauMembers.join('; '), p.viz ? 'Yes' : 'No', p.br ? 'Yes' : 'No',
       p.brBest, p.brList.map((b) => b.inst + ' (#' + b.rank + ')').join('; '), p.accCensored ? 'On or before 2000' : (p.accYear == null ? '' : p.accYear + (p.accApprox ? ' (approximate)' : '')), p.accDate, p.accEra,
-      p.doOrigin ? 'Yes' : 'No', p.origin, p.originBasis, p.formerName, p.chairName || 'Not identified', p.chairType, p.chairPos, p.chairInterim ? 'Yes' : '', p.chairTitle, p.chairSrc, p.chairEv, p.chairSecondary, p.pdNames.join('; '),
+      p.doOrigin ? 'Yes' : 'No', p.origin, p.originBasis, p.formerName, p.chairName || 'Not identified', p.chairType, p.chairPos, p.chairInterim ? 'Yes' : '', p.chairTitle, p.chairSrc, p.chairEv, p.chairSecondary, p.chairNote, p.pdNames.join('; '),
       p.owner, p.ownType, p.staffing, p.staffCat, p.corpRel, p.classConf, p.ownSrc, p.staffSrc, p.affil, p.nrmp,
       p.n, p.rankN[0], p.n ? (100 * p.rankN[0] / p.n).toFixed(1) : '', p.rankN[1], p.rankN[2], p.rankN[3], p.rankN[4], p.rankN[5], p.rankN[6],
       fmtQ(p.medSc), fmtQ(p.q1Sc), fmtQ(p.q3Sc), p.meanSc == null ? '' : p.meanSc.toFixed(1), (100 * p.ge10).toFixed(1), fmtQ(p.medGs), (100 * p.doShare).toFixed(1)]);
