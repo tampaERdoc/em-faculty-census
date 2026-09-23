@@ -287,3 +287,61 @@ table.data td.w-rank .sub { max-width: 240px; }
 .fgroup.farea .check:hover { background: var(--surface); }
 .fgroup.farea .ttl-list { background: var(--surface); }
 #f-st { flex: 1 1 100%; }
+/* Ask the data: plain-language questions */
+.header-links { display: flex; gap: 8px; }
+.header-links a[aria-current="page"] { background: rgba(255,255,255,.18); }
+.ask-btn { text-decoration: none; }
+@media (max-width: 719.98px) { .ask-btn { display: none; } }
+.ask { max-width: 980px; margin: 0 auto; padding: 18px 0 40px; }
+.ask-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.ask-head h2 { margin: 4px 0 6px; font: 700 26px/1.2 var(--font-head); }
+.ask-sub { margin: 0 0 14px; color: var(--muted); max-width: 78ch; }
+.ask-form { display: flex; gap: 8px; margin: 0 0 12px; }
+.ask-form input { flex: 1 1 auto; min-width: 0; padding: 12px 14px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 16px; }
+.ask-form input::placeholder { color: var(--faint); }
+.ask-form .btn { padding: 10px 18px; border-radius: 12px; }
+.ask-examples, .ask-follow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 14px; }
+.ask-follow { margin: 14px 0 0; }
+.ask-try { font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.chip-btn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; cursor: pointer; text-align: left; max-width: 100%; }
+.chip-btn:hover { background: var(--green-tint); border-color: var(--green-tint-2); color: var(--green-strong); }
+.chip-btn .sub { display: block; color: var(--muted); font-size: 12px; }
+.ask-choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.ask-choices .chip-btn { border-radius: 10px; }
+.ask-log { display: grid; gap: 18px; margin: 6px 0 16px; }
+.ask-turn { display: grid; gap: 8px; }
+.ask-who { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.ask-q { justify-self: end; max-width: min(100%, 720px); background: var(--green-tint); border: 1px solid var(--green-tint-2); border-radius: 14px 14px 4px 14px; padding: 10px 14px; }
+.ask-q p { margin: 0; font-size: 15px; }
+.ask-a { background: var(--surface); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; padding: 14px 16px 12px; outline: none; }
+.ask-read { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 10px; font-size: 13px; }
+.ask-read .k { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.ask-read .chip { padding: 2px 10px; }
+.ask-read .chip-m { background: var(--gold-tint); border-color: #e3dbb7; }
+.ask-vs, .ask-of { font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 0 2px; }
+.ask-warn { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--gold-tint); border: 1px solid #e3dbb7; font-size: 13.5px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ask-warn, :root:not([data-theme="light"]) .ask-read .chip-m { border-color: #4a4426; } }
+.ask-block { padding: 6px 0 10px; }
+.ask-block + .ask-block { border-top: 1px solid var(--border); padding-top: 14px; }
+.ask-text { margin: 0 0 10px; font-size: 15px; max-width: 90ch; }
+.ask-fig { margin: 4px 0 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.ask-fig svg { display: block; width: 100%; height: auto; }
+.ask-table { max-height: 480px; margin: 0 0 6px; }
+.ask-table table.sum-table th.num .sub { display: block; font-weight: 500; color: var(--faint); font-size: 11.5px; }
+.ask-table .pc { color: var(--muted); font-size: 12.5px; }
+.ask-table table.data tbody tr { cursor: default; }
+.ask-table table.ask-people tbody tr { cursor: default; }
+.ask-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.ask-actions-all { margin-top: 12px; }
+.btn-sm { padding: 5px 10px; font-size: 13px; border-radius: 7px; text-decoration: none; }
+.ask-meta { margin-top: 10px; text-align: right; }
+.ask-meta .link-btn { font-size: 12.5px; color: var(--muted); }
+.ask-list { margin: 0 0 6px; padding-left: 20px; }
+.ask-list li { margin: 4px 0; max-width: 90ch; }
+.ask-foot { max-width: 90ch; }
+@media (max-width: 719.98px) { .ask { padding-top: 12px; } .ask-head h2 { font-size: 21px; } .ask-form { flex-direction: column; } .ask-form .btn { justify-content: center; } .ask-a { padding: 12px 12px 10px; } .ask-q { max-width: 100%; } }
+.ask, .ask-log, .ask-turn, .ask-a, .ask-q, .ask-block, .ask-table, .ask-fig { min-width: 0; max-width: 100%; }
+.ask-read .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.ask-choices .chip-btn, .ask-follow .chip-btn, .ask-examples .chip-btn { white-space: normal; overflow-wrap: anywhere; }
+.ask-q p, .ask-text { overflow-wrap: anywhere; }
+.ask-actions .btn { white-space: normal; text-align: left; max-width: 100%; }

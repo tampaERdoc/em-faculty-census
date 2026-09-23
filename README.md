@@ -16,6 +16,7 @@ A searchable web tool for a national census of emergency medicine faculty at all
 - Sort any column, including AAU, Vizient, and Blue Ridge.
 - Open a program to see everything recorded for it, including all of its faculty.
 - Export any search as a CSV, or copy a link that reopens the same search.
+- **Ask the data**: type a plain-language question and get the numbers, a figure, a table, and a link to the same selection in the explorer. For example: *show me the h-index distribution of chairs versus assistant professors*, *compare USF rank distribution and h-index to HCA Brandon*, *median Scopus h-index by rank at academic vs corporate programs*, *how many program directors have an h-index of at least 10*, *list 4-year programs in Florida*, *who is the chair at Johns Hopkins*. It is a rule-based reader, not an AI model: it recognizes the census vocabulary (normalized ranks, described titles, leadership roles, degrees, program types, research markers, program length, accreditation era or year, states, health systems, and program names, nicknames, or ACGME IDs) and the words *versus*, *compare*, *by*, *how many*, *share*, *list*, *top*, and *who is*. Every answer says how the question was read. Nothing typed is sent anywhere; the reading and the arithmetic happen in the browser.
 
 Definitions are on the site under **About the data**.
 

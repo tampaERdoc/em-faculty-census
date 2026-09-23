@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EM Faculty Census Explorer</title>
-<meta name="description" content="Search a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: academic rank, Scopus and Google Scholar h-index, program type, AAU, Vizient and Blue Ridge markers, chairs, and program directors.">
+<meta name="description" content="Search a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: academic rank, Scopus and Google Scholar h-index, program type, AAU, Vizient and Blue Ridge markers, chairs, and program directors. Ask questions in plain language and compare programs or groups of faculty.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23006747'/%3E%3Cpath d='M18 44V20h6v24zm11 0V28h6v16zm11 0V14h6v30z' fill='%23CFC493'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
@@ -18,6 +18,7 @@
       <p class="tagline"><span class="t-long" id="tagline">National census of emergency medicine faculty at all ACGME-accredited EM residency programs</span><span class="t-short" id="tagline-short">National EM faculty census</span></p>
     </div>
     <nav class="header-links">
+      <a href="#/ask" data-nav class="ask-nav">Ask the data</a>
       <a href="#/about" data-nav>About the data</a>
     </nav>
   </div>
@@ -40,6 +41,26 @@
       <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search a program, person, institution, city, or state">
     </div>
     <button type="button" class="btn btn-ghost filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false">Filters <span class="badge" id="filter-badge" hidden></span></button>
+    <a class="btn btn-ghost ask-btn" href="#/ask" title="Ask a question about the data in plain language">Ask the data</a>
+  </section>
+
+  <section class="ask" id="ask" aria-labelledby="ask-title" hidden>
+    <div class="ask-head">
+      <div>
+        <p class="d-kicker">Ask the data</p>
+        <h2 id="ask-title">Ask a question about the census</h2>
+        <p class="ask-sub">Type a question in plain language: compare groups of faculty or programs, look at h-index and rank distributions, count, list, or ask who chairs a department. Everything is computed in your browser from the same data as the explorer; nothing is sent anywhere.</p>
+      </div>
+      <button type="button" class="link-btn" id="ask-clear" hidden>Clear the conversation</button>
+    </div>
+    <form class="ask-form" id="ask-form" autocomplete="off">
+      <label for="ask-q" class="sr-only">Your question</label>
+      <input id="ask-q" type="text" maxlength="400" spellcheck="false" placeholder="Ask a question about the census…">
+      <button type="submit" class="btn btn-primary" id="ask-go">Ask</button>
+    </form>
+    <div class="ask-examples" id="ask-examples"></div>
+    <div class="ask-log" id="ask-log" role="log" aria-live="polite" hidden></div>
+    <p class="note ask-foot">A rule-based reader, not an AI model: it understands the census vocabulary (ranks, roles, program types, markers, program names, h-index thresholds) and the words <em>versus</em>, <em>compare</em>, <em>by</em>, <em>how many</em>, <em>list</em>, <em>top</em>, and <em>who is</em>. Type <em>help</em> for what it knows. Every answer shows how the question was read and links to the same selection in the explorer.</p>
   </section>
 
   <div class="layout" id="layout" hidden>
