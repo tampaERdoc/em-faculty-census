@@ -31,17 +31,29 @@
   </div>
 
   <section class="toolbar" id="toolbar" hidden>
-    <div class="view-switch" role="tablist" aria-label="What to list">
-      <button type="button" role="tab" id="tab-programs" data-view="programs" aria-selected="true">Programs <span class="count" id="count-programs"></span></button>
-      <button type="button" role="tab" id="tab-people" data-view="people" aria-selected="false">People <span class="count" id="count-people"></span></button>
+    <div class="tool-row">
+      <button type="button" class="btn mode-btn" id="search-btn" title="Search programs and people by name, institution, city, or state">Search the data</button>
+      <div class="search">
+        <label for="q" class="sr-only">Search</label>
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search a program, person, institution, city, or state">
+      </div>
+      <div class="view-switch" role="tablist" aria-label="What to list">
+        <button type="button" role="tab" id="tab-programs" data-view="programs" aria-selected="true">Programs <span class="count" id="count-programs"></span></button>
+        <button type="button" role="tab" id="tab-people" data-view="people" aria-selected="false">People <span class="count" id="count-people"></span></button>
+      </div>
+      <button type="button" class="btn btn-ghost filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false">Filters <span class="badge" id="filter-badge" hidden></span></button>
     </div>
-    <div class="search">
-      <label for="q" class="sr-only">Search</label>
-      <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>
-      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search a program, person, institution, city, or state">
-    </div>
-    <button type="button" class="btn btn-ghost filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false">Filters <span class="badge" id="filter-badge" hidden></span></button>
-    <a class="btn btn-ghost ask-btn" href="#/ask" title="Ask a question about the data in plain language">Ask the data</a>
+    <form class="tool-row ask-row" id="ask-inline" autocomplete="off">
+      <button type="button" class="btn btn-primary mode-btn ask-btn" id="ask-btn" title="Ask a question about the data in plain language">Ask the data</button>
+      <div class="search ask-search">
+        <label for="ask-q2" class="sr-only">Ask a question about the census</label>
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v9h2v2.2L8.3 15H20V6H4zm3 2h10v2H7V8zm0 3h7v2H7v-2z"/></svg>
+        <input id="ask-q2" type="text" maxlength="400" spellcheck="false" placeholder="Ask a question in plain language, e.g. h-index of chairs versus assistant professors">
+      </div>
+      <button type="submit" class="btn" id="ask-inline-go">Ask</button>
+    </form>
+    <p class="ask-explainer" id="ask-explainer">Ask the data answers plain-language questions from the same census, entirely in your browser: compare groups of faculty or programs, look at h-index and rank distributions, count, list, rank the top, or ask who chairs a department. Try <button type="button" class="link-btn" data-ask-inline="Show me the h-index distribution of chairs versus assistant professors">h-index distribution of chairs versus assistant professors</button>, <button type="button" class="link-btn" data-ask-inline="Compare USF rank distribution and h-index to HCA Brandon">compare USF rank distribution and h-index to HCA Brandon</button>, or <button type="button" class="link-btn" data-ask-inline="Who is the chair at Johns Hopkins?">who is the chair at Johns Hopkins</button>. It is a rule-based reader, not an AI model: every answer shows how the question was read, with a figure, a table, and a link back to the same selection in the explorer.</p>
   </section>
 
   <section class="ask" id="ask" aria-labelledby="ask-title" hidden>

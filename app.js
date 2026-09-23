@@ -280,6 +280,12 @@
       if (e.target.closest('#ttl-none')) { S.title = []; changed(); }
     });
     $('#clear-filters').addEventListener('click', () => { const keep = { view: S.view, q: S.q, sp: S.sp, dp: S.dp, sf: S.sf, df: S.df, g: S.g, si: S.si, pk: S.pk, pf: S.pf }; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), keep); ttlFind = ''; renderTitleList(); changed(); });
+    // front page: "Search the data" focuses the search bar; "Ask the data" sends a typed question to the Ask screen (or opens it)
+    $('#search-btn').addEventListener('click', () => { $('#q').focus(); $('#q').select(); });
+    const askInline = () => { const q = $('#ask-q2').value.trim(); go(q ? '#/ask?q=' + encodeURIComponent(q) : '#/ask'); };
+    $('#ask-inline').addEventListener('submit', (e) => { e.preventDefault(); askInline(); });
+    $('#ask-btn').addEventListener('click', askInline);
+    document.addEventListener('click', (e) => { const b = e.target.closest('[data-ask-inline]'); if (b) go('#/ask?q=' + encodeURIComponent(b.dataset.askInline)); });
     $('#filters-toggle').addEventListener('click', () => toggleFilters(true));
     $('#filters-close').addEventListener('click', () => toggleFilters(false));
     document.addEventListener('keydown', (e) => {
@@ -1784,6 +1790,7 @@
     document.body.classList.toggle('ask-open', open);
     document.querySelectorAll('a[href="#/ask"]').forEach((a) => { if (open) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     if (!open) { if (document.title.indexOf('Ask the data') === 0) document.title = 'EM Faculty Census Explorer'; return; }
+    if ($('#ask-q2')) $('#ask-q2').value = '';
     document.title = 'Ask the data · EM Faculty Census Explorer';
     const u = new URLSearchParams(qs || ''), q = (u.get('q') || '').trim();
     if (q && q !== askLastQ) askRun(q, true);
