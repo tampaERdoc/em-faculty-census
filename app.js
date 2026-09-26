@@ -30,8 +30,8 @@
   const RANKS = ['No rank', 'Instructor', 'Assistant professor', 'Associate professor', 'Full professor', 'Emeritus', 'Other title'];
   const PHENOS = ['AAU + Vizient + Blue Ridge', 'AAU + Blue Ridge', 'Vizient + Blue Ridge', 'Blue Ridge', 'AAU + Vizient', 'AAU', 'Vizient', 'None'];
   const TYPES = ['Research-marker academic: NIH-ranked (Blue Ridge)', 'Research-marker academic: AAU or Vizient', 'University-based academic (no marker)',
-    'Corporate (for-profit hospital or national staffing group)', 'Community-based (non-profit or public)', 'Military'];
-  const TYPE_SHORT = ['NIH-ranked academic', 'AAU/Vizient academic', 'University-based', 'Corporate', 'Community-based', 'Military'];
+    'Corporate-affiliated (for-profit hospital or national staffing group)', 'Community-based (non-profit or public)', 'Military'];
+  const TYPE_SHORT = ['NIH-ranked academic', 'AAU/Vizient academic', 'University-based', 'Corporate-affiliated', 'Community-based', 'Military'];
   const ERAS = ['Legacy (on or before 2000)', '2001–2013', '2014–2020 (single accreditation)', '2021 or later'];
   const CHAIR_KEYS = [['A', 'Academic chair'], ['H', 'Hospital chair'], ['N', 'No chair identified']];
   const MAXG = 25; // most programs compared side by side in the summary
@@ -107,6 +107,7 @@
         aau: r[c.aau], aaum: LK.aaum[r[c.aaum]], viz: r[c.viz], brr: r[c.brr], brf: r[c.brf], brpr: r[c.brpr], brpf: r[c.brpf],
         chd: r[c.chd], cht: r[c.cht], chpos: LK.chairpos[r[c.chpos]], chtitle: r[c.chtitle], chsrc: r[c.chsrc], chev: r[c.chev], chfor: r[c.chfor],
         roster: LK.roster[r[c.roster]], profile: r[c.profile], rsrc: r[c.rsrc],
+        em: r[c.eml] ? r[c.eml] + '@' + LK.emdom[r[c.emd]] : '', ems: r[c.ems] || 0, emsrc: r[c.emsrc] != null ? LK.emsrc[r[c.emsrc]] : '',
       };
       p.name = (p.fn + ' ' + p.ln).trim();
       p.sortName = p.ln + ' ' + p.fn;
@@ -689,7 +690,7 @@
       (p.chairSecondary ? fact('Other chairs', esc(p.chairSecondary)) : '') + (p.chairNote ? fact('Chair note', noteHTML(p.chairNote)) : '') + '</dl></div>' +
       '<div class="card"><h3>Hospital ownership and ED staffing</h3><dl class="facts">' +
       fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '')) + fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : '')) +
-      fact('Corporate ties', esc(p.corpRel)) + fact('Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
+      fact('Corporate affiliation', esc(p.corpRel)) + fact('Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
       '</dl></div>' +
       '<div class="two"><div class="card"><h3>Normalized rank title</h3>' + bars(RANKS, p.rankN, p.n) + '</div><div class="card"><h3>Scopus h-index</h3>' + bars(HB.map((b) => b[2]), p.hBands, p.n) +
       '<p class="note">Mean ' + fmtQ(p.meanSc) + ' · ' + pct(Math.round(p.ge10 * p.n), p.n, 0) + ' with h ≥ 10 · ' + pct(Math.round(p.doShare * p.n), p.n, 0) + ' DO-only degree</p></div></div>' +
@@ -736,7 +737,7 @@
       fact('Program', pr.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a><span class="sub">' + esc(x.city) + ', ' + esc(x.state) + '</span>').join('')) +
       fact('Institution', esc(f.inst)) + fact('Normalized rank title', esc(RANKS[f.rank])) + fact('Department/program described title', f.title && f.title !== 'No Rank' ? esc(f.title) : '<span class="dash">None published</span>') +
       fact('Department role', esc(roleText(f))) + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
-      '</dl></div>' +
+      '</dl></div>' + emailCard(f, issue) +
       '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + '</dl><p class="note">Values collected ' + esc(META.hDates) + '.</p></div>' +
       '<div class="card"><h3>Institutional markers</h3><dl class="facts">' + fact('AAU', f.aau ? 'Yes' + (f.aaum ? '<span class="sub">' + esc(f.aaum) + '</span>' : '') : 'No') +
       fact('Vizient', f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No')) +
@@ -744,6 +745,19 @@
       (f.brpr != null ? fact('Blue Ridge PI', 'Rank #' + f.brpr + (f.brpf != null ? '<span class="sub">' + money(f.brpf) + ' NIH funding (FY2025)</span>' : '')) : '') + '</dl></div>' +
       '<div class="card"><h3>Sources</h3><dl class="facts">' + fact('Faculty roster', srcHTML(f.roster)) + fact('Profile page', link(f.profile, host(f.profile))) + fact('Rank source', link(f.rsrc, host(f.rsrc))) + fact('Record ID', esc(f.rid)) + '</dl>' +
       '<p class="note">See an error? <a href="' + esc(issue) + '" target="_blank" rel="noopener">Report a correction</a> (needs a GitHub account).</p></div>';
+  }
+  function emSrcLabel(u) {
+    const h = host(u);
+    if (/pubmed\.ncbi\.nlm\.nih\.gov$/.test(h)) return 'PubMed article';
+    if (/pmc\.ncbi\.nlm\.nih\.gov$|ncbi\.nlm\.nih\.gov$/.test(h)) return 'PubMed Central article';
+    return h;
+  }
+  function emailCard(f, issue) {
+    if (!f.em) return '';
+    const lab = META.emStatus[f.ems] || '';
+    return '<div class="card"><h3>Contact</h3><dl class="facts">' +
+      fact('Email', '<a class="email" style="overflow-wrap:anywhere" href="mailto:' + esc(f.em) + '">' + esc(f.em) + '</a><span class="sub">' + esc(lab) + (f.emsrc ? ' · ' + link(f.emsrc, emSrcLabel(f.emsrc)) : '') + '</span>') +
+      '</dl><p class="note">Public addresses collected ' + esc(META.emDates) + '; delivery not tested. To correct or remove an address, <a href="' + esc(issue) + '" target="_blank" rel="noopener">report a correction</a>.</p></div>';
   }
   const hVal = (v, b) => (b === 0 ? String(v) : '<span class="zero">' + v + '<sup>°</sup></span>');
   function hDetail(v, b, why, url, label) {
@@ -765,13 +779,14 @@
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
       '<dt>Blue Ridge</dt><dd>The medical school appears in the Blue Ridge Institute for Medical Research (BRIMR) fiscal-year 2025 ranking of NIH funding to departments of emergency medicine. Ranks and dollars are BRIMR’s.</dd>' +
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
-      '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-marker academic</em>: any of the three markers, split into NIH-ranked (Blue Ridge) and AAU or Vizient. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. <em>Community-based</em>: everything else (non-profit or public).</dd>' +
+      '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate-affiliated</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-marker academic</em>: any of the three markers, split into NIH-ranked (Blue Ridge) and AAU or Vizient. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. <em>Community-based</em>: everything else (non-profit or public).</dd>' +
       '<dt>Department chair</dt><dd>One designated chair per program. An <em>academic chair</em> heads a medical-school EM department, division, or section (including regional campuses). A <em>hospital chair</em> heads a hospital or health-system emergency department: department chair, chief, system chair, or, when none of those was identified, the ED medical director. Where a program listed both, the academic chair was designated. Evidence is graded high, medium, or low.</dd>' +
       '<dt>Leadership role</dt><dd>Titles as listed by each program. Department chairs are selected under Department chair, defined below. <em>Program director</em> is the residency program director; <em>Student clerkship director</em> is the medical student clerkship director (associate and assistant clerkship directors are listed separately); <em>Vice chair</em> includes associate and executive vice chairs. A faculty member can hold more than one title.</dd>' +
       '<dt>Program director</dt><dd>Faculty listed with the Program Director title.</dd>' +
       '<dt>ACGME accreditation</dt><dd>The effective date of the earliest record conferring accredited or pre-accredited status. Published histories begin in academic year 2000–2001, so older programs are shown as on or before 2000. It marks entry into ACGME accreditation, not when training began.</dd>' +
       '<dt>DO origin</dt><dd>The program held American Osteopathic Association accreditation before the single accreditation system (2014–2020) and obtained ACGME accreditation during it.</dd>' +
-      '<dt>Ownership and staffing</dt><dd>From public ownership and staffing sources at one date; contracts change, and staffing could not be determined for some programs.</dd></dl>' +
+      '<dt>Ownership and staffing</dt><dd>From public ownership and staffing sources at one date; contracts change, and staffing could not be determined for some programs.</dd>' +
+      '<dt>Email</dt><dd>A public professional address, collected ' + esc(META.emDates) + ', shown on the faculty record with its source: an address listed for the person on a faculty or professional page, or, where none was found, the author contact in a published article or document, whose current mailbox is not verified. Delivery was not tested. CSV exports include the address and its source.</dd></dl>' +
       '<h3>Corrections</h3><p>Every value comes from a public source, but rosters and profiles change. To report an error, open the record and choose <em>Report a correction</em>, or <a href="' + REPO + '/issues/new" target="_blank" rel="noopener">open an issue</a>.</p>' +
       '<h3>Download</h3><p><button type="button" class="btn" data-export-all-inline="people">All faculty records (CSV)</button> <button type="button" class="btn" data-export-all-inline="programs">All programs (CSV)</button></p>' +
       '<p class="note">National census of US emergency medicine faculty, USF Department of Emergency Medicine, ' + esc(META.asOf) + '.</p></div>';
@@ -1040,7 +1055,8 @@
     const H = ['Record ID', 'First name', 'Last name', 'Listed credentials', 'Degree', 'Program(s)', 'ACGME program ID(s)', 'Program state(s)', 'Program type(s)', 'Institution', 'Normalized rank title', 'Department/program described title',
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
-      'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source'];
+      'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source',
+      'Email', 'Email source type', 'Email source'];
     const out = rows.map((f) => {
       const pr = f.progs.map((k) => P[k]);
       return [f.rid, f.fn, f.ln, f.cred, f.deg, pr.map((x) => x.name).join('; '), pr.map((x) => x.id).join('; '), uniq(pr.map((x) => x.state)).join('; '), uniq(pr.map((x) => TYPES[x.typeIdx])).join('; '), f.inst,
@@ -1048,7 +1064,7 @@
         f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', f.aau ? 'Yes' : 'No', f.aaum, f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No'), PHENOS[f.phenoIdx],
         f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated department chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
         f.chd ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') : '', f.chd ? f.chpos : '', f.chtitle, f.chsrc, { H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '',
-        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc];
+        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : ''];
     });
     download(name, H, out);
   }
@@ -1056,7 +1072,7 @@
     const H = ['ACGME program ID', 'Program', 'Sponsor', 'Primary site', 'City', 'State', 'Program length (years)', 'Program type', 'Marker phenotype', 'AAU', 'AAU university(ies)', 'Vizient', 'Blue Ridge ranked',
       'Blue Ridge best rank (FY2025)', 'Blue Ridge institution(s)', 'ACGME accreditation year', 'Accreditation date', 'Accreditation era', 'DO origin', 'Origin', 'Origin basis', 'Former name',
       'Department chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Chair note', 'Program director(s)',
-      'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate ties', 'Classification confidence', 'Ownership source', 'Staffing source', 'Affiliation', 'NRMP code',
+      'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate affiliation', 'Classification confidence', 'Ownership source', 'Staffing source', 'Affiliation', 'NRMP code',
       'Faculty records', 'No rank (n)', 'No rank (%)', 'Instructor (n)', 'Assistant professor (n)', 'Associate professor (n)', 'Full professor (n)', 'Emeritus (n)', 'Other title (n)',
       'Median Scopus h', 'Scopus h Q1', 'Scopus h Q3', 'Mean Scopus h', 'Scopus h >= 10 (%)', 'Median Google Scholar h', 'DO-only degree share (%)'];
     const out = rows.map((p) => [p.id, p.name, p.sponsor, p.site, p.city, p.state, p.length, TYPES[p.typeIdx], p.pheno, p.aau ? 'Yes' : 'No', p.aauMembers.join('; '), p.viz ? 'Yes' : 'No', p.br ? 'Yes' : 'No',
@@ -1173,12 +1189,12 @@
     { re: /\b(?:non|not)[ -]?aau(?: members?| institutions?| universities| university| schools?| faculty)?\b/g, t: 'mk', v: 'noaau', label: 'Faculty at institutions that are not AAU members', short: 'non-AAU faculty', pred: 'are not at AAU institutions' },
     { re: /\b(?:non|not)[ -]?vizient(?: members?| institutions?| faculty)?\b/g, t: 'mk', v: 'noviz', label: 'Faculty at institutions outside the Vizient cohort', short: 'non-Vizient faculty', pred: 'are not at Vizient academic medical centers' },
     { re: /\buniversity[ -]based(?: academic)?(?: programs?| departments?)?\b|\bno[ -]marker academic\b|\bunmarked academic\b|\buniversity programs? (?:with|without) (?:no |a )?markers?\b/g, t: 'type', v: [2], label: 'University-based academic programs (no research marker)', short: 'university-based programs' },
-    { re: /\b(?:non|not)[ -]?academic(?: programs?| departments?| centers?| settings?)?\b/g, t: 'type', v: [3, 4, 5], label: 'Non-academic programs (corporate, community-based, or military)', short: 'non-academic programs' },
+    { re: /\b(?:non|not)[ -]?academic(?: programs?| departments?| centers?| settings?)?\b/g, t: 'type', v: [3, 4, 5], label: 'Non-academic programs (corporate-affiliated, community-based, or military)', short: 'non-academic programs' },
     { re: /\bacademic (?:programs?|departments?|centers?|medical centers?|institutions?|settings?|places?|sites?|hospitals?|em)\b|\bacademics?\b|\bamcs?\b|\buniversity(?: affiliated| sponsored)? (?:programs?|departments?|hospitals?|centers?|settings?)\b|\buniversities\b/g, t: 'type', v: [0, 1, 2], label: 'Academic programs (research-marker or university-based)', short: 'academic programs' },
-    { re: /\bcorporate(?: programs?| departments?| sites?| hospitals?| settings?| owned| run| affiliated)?\b|\bfor[ -]?profit(?: programs?| hospitals?| sites?| settings?| owned)?\b|\binvestor[ -]owned(?: programs?| hospitals?)?\b|\bprivate[ -]equity(?: owned| backed| financed| staffed)?(?: programs?| groups?| sites?)?\b|\bpe[ -](?:owned|backed|financed|staffed)(?: programs?| sites?)?\b|\bcmgs?\b|\bcontract[ -]management groups?\b|\bnational staffing groups?\b|\bstaffing[ -]group(?: programs?| sites?)?\b/g, t: 'type', v: [3], label: 'Corporate programs (for-profit hospital or national staffing group)', short: 'corporate programs' },
+    { re: /\bcorporate(?:[ -]affiliated(?: programs?| departments?| sites?| hospitals?| settings?)?| programs?| departments?| sites?| hospitals?| settings?| owned| run)?\b|\bfor[ -]?profit(?: programs?| hospitals?| sites?| settings?| owned)?\b|\binvestor[ -]owned(?: programs?| hospitals?)?\b|\bprivate[ -]equity(?: owned| backed| financed| staffed)?(?: programs?| groups?| sites?)?\b|\bpe[ -](?:owned|backed|financed|staffed)(?: programs?| sites?)?\b|\bcmgs?\b|\bcontract[ -]management groups?\b|\bnational staffing groups?\b|\bstaffing[ -]group(?: programs?| sites?)?\b/g, t: 'type', v: [3], label: 'Corporate-affiliated programs (for-profit hospital or national staffing group)', short: 'corporate-affiliated programs' },
     { re: /\bcommunity[ -]?(?:based)?(?: programs?| departments?| hospitals?| sites?| settings?| em)?\b|\bnon[ -]?profit community\b/g, t: 'type', v: [4], label: 'Community-based programs (non-profit or public)', short: 'community-based programs' },
     { re: /\bmilitary(?: programs?| departments?| hospitals?| sites?| settings?)?\b|\bdod\b|\barmy\b|\bnavy\b|\bair force\b|\bdefense\b|\barmed forces\b/g, t: 'type', v: [5], label: 'Military programs', short: 'military programs' },
-    { re: /\b(?:non|not)[ -]?corporate(?: programs?)?\b/g, t: 'type', v: [0, 1, 2, 4, 5], label: 'Non-corporate programs', short: 'non-corporate programs' },
+    { re: /\b(?:non|not)[ -]?corporate(?:[ -]affiliated)?(?: programs?)?\b/g, t: 'type', v: [0, 1, 2, 4, 5], label: 'Programs not corporate-affiliated', short: 'programs not corporate-affiliated' },
     // markers of the faculty member's own institution (person-level)
     { re: /\b(?:aau)(?: members?| institutions?| universities| university| schools?| faculty)?\b|\bassociation of american universities\b/g, t: 'mk', v: 'aau', label: 'Faculty at AAU member institutions', short: 'AAU faculty', pred: 'are at AAU institutions' },
     { re: /\bvizient(?: members?| institutions?| cohort| amcs?| faculty)?\b/g, t: 'mk', v: 'viz', label: 'Faculty at Vizient academic medical centers', short: 'Vizient faculty', pred: 'are at Vizient academic medical centers' },
@@ -1659,7 +1675,7 @@
       return out;
     }
     if (plan.bad.length && !plan.filters.length && !plan.metrics.length && !plan.top) {
-      out.blocks.push({ html: '<p class="ask-text">I could not match “' + esc(plan.bad.join('”, “')) + '” to a program or to a term I know. I understand normalized ranks (assistant professors, no published rank), leadership roles (chairs, program directors, vice chairs), degrees, program types (academic, corporate, community, military), program length, AAU, Vizient and Blue Ridge, states, health systems, and program names or ACGME IDs.</p>' });
+      out.blocks.push({ html: '<p class="ask-text">I could not match “' + esc(plan.bad.join('”, “')) + '” to a program or to a term I know. I understand normalized ranks (assistant professors, no published rank), leadership roles (chairs, program directors, vice chairs), degrees, program types (academic, corporate-affiliated, community, military), program length, AAU, Vizient and Blue Ridge, states, health systems, and program names or ACGME IDs.</p>' });
       out.follow = askExamples().slice(0, 4);
       return out;
     }
@@ -1708,7 +1724,7 @@
         else if (plan.top) text = (plan.top.dir === 'desc' ? 'Highest ' : 'Lowest ') + srcName(key) + ' h-index among ' + lcFirst(c.label) + ' (n = ' + fmt(rows.length) + '): ' + shownR.slice(0, 3).map((f) => f.name + ' (' + f[key] + '; ' + (f.progs.length ? P[f.progs[0]].name : '') + ')').join('; ') + (shownR.length > 3 ? '; and ' + (shownR.length - 3) + ' more below' : '') + '.';
         else text = nUnit(rows.length, 'faculty record matches', 'faculty records match') + ' ' + lcFirst(c.label) + (rows.length <= 3 ? ': ' + rows.map((f) => f.name + (f.chd === 1 && c.filters.some((x) => x.t === 'role') ? ' (' + (f.cht === 'A' ? 'academic chair' : 'hospital chair') + '; ' + lcFirst(f.chpos) + (f.chtitle ? '; listed as “' + f.chtitle + '”' : '') + ')' : '')).join('; ') : ', sorted by ' + srcName(key) + ' h-index') + '.';
         const tid = 'tbl' + (++askSeq);
-        ASK_TABLES.set(tid, { name: 'em-census-ask-people', header: ['Record ID', 'Name', 'Credentials', 'Program(s)', 'Normalized rank', 'Described title', 'Roles', 'Scopus h', 'Google Scholar h', 'Chair designation'], rows: rows.map((f) => [f.rid, f.name, f.cred, f.progs.map((k) => P[k].name).join('; '), RANKS[f.rank], f.title, roleText(f), f.sc, f.gs, f.chd === 1 ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') + ' · ' + f.chpos : '']) });
+        ASK_TABLES.set(tid, { name: 'em-census-ask-people', header: ['Record ID', 'Name', 'Credentials', 'Program(s)', 'Normalized rank', 'Described title', 'Roles', 'Scopus h', 'Google Scholar h', 'Chair designation', 'Email', 'Email source type'], rows: rows.map((f) => [f.rid, f.name, f.cred, f.progs.map((k) => P[k].name).join('; '), RANKS[f.rank], f.title, roleText(f), f.sc, f.gs, f.chd === 1 ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') + ' · ' + f.chpos : '', f.em, f.em ? META.emStatus[f.ems] : '']) });
         let extraHtml = '';
         const pf = c.filters.find((x) => x.t === 'prog');
         if (pf && pf.ids.length === 1 && c.filters.some((x) => x.t === 'role' && Array.isArray(x.v) && x.v.indexOf('pca') >= 0)) { const p = P[pf.ids[0]]; if (p.chairNote) extraHtml += '<p class="note"><strong>Chair note:</strong> ' + noteHTML(p.chairNote) + '</p>'; if (p.chairSrc) extraHtml += '<p class="note">Chair source: ' + srcHTML(p.chairSrc) + (p.chairEv ? ' · evidence ' + esc(p.chairEv.toLowerCase()) : '') + '</p>'; if (p.chairSecondary) extraHtml += '<p class="note">Other chairs: ' + esc(p.chairSecondary) + '</p>'; }
@@ -1775,12 +1791,12 @@
     return out;
   }
   function askHelp(out) {
-    out.blocks.push({ html: '<p class="ask-text">Ask about the census in plain language. I recognize:</p><ul class="ask-list"><li><strong>Groups of faculty</strong>: normalized ranks (assistant professors, full professors, no published rank), leadership roles (chairs, academic or hospital chairs, program directors, vice chairs, clerkship or fellowship directors), degrees (MD, DO, PhD, physician-scientists), described titles (clinical assistant professors), and h-index thresholds (h ≥ 10, no Scopus profile).</li><li><strong>Groups of programs</strong>: program type (academic, corporate, community, military, NIH-ranked, AAU or Vizient, university-based), 3- or 4-year, DO origin, accreditation era or year, state, health systems (HCA), and any program by name, nickname, or ACGME ID.</li><li><strong>Measures</strong>: h-index (Scopus by default, or Google Scholar), rank distribution, roles, degrees, counts and shares, top lists, and “who is the chair of …”.</li><li><strong>Comparisons and breakdowns</strong>: “X versus Y”, “compare X to Y”, “by rank”, “by program type”, “by state”.</li></ul>' });
+    out.blocks.push({ html: '<p class="ask-text">Ask about the census in plain language. I recognize:</p><ul class="ask-list"><li><strong>Groups of faculty</strong>: normalized ranks (assistant professors, full professors, no published rank), leadership roles (chairs, academic or hospital chairs, program directors, vice chairs, clerkship or fellowship directors), degrees (MD, DO, PhD, physician-scientists), described titles (clinical assistant professors), and h-index thresholds (h ≥ 10, no Scopus profile).</li><li><strong>Groups of programs</strong>: program type (academic, corporate-affiliated, community, military, NIH-ranked, AAU or Vizient, university-based), 3- or 4-year, DO origin, accreditation era or year, state, health systems (HCA), and any program by name, nickname, or ACGME ID.</li><li><strong>Measures</strong>: h-index (Scopus by default, or Google Scholar), rank distribution, roles, degrees, counts and shares, top lists, and “who is the chair of …”.</li><li><strong>Comparisons and breakdowns</strong>: “X versus Y”, “compare X to Y”, “by rank”, “by program type”, “by state”.</li></ul>' });
     out.follow = askExamples();
     return out;
   }
   function askExamples() {
-    return ['Show me the h-index distribution of chairs versus assistant professors', 'Compare USF rank distribution and h-index to HCA Brandon', 'Median Scopus h-index by rank at academic vs corporate programs', 'How many program directors have an h-index of at least 10?', 'Rank distribution at 3-year vs 4-year programs', 'Who is the chair at Johns Hopkins?', 'Top 10 chairs by Google Scholar h-index', 'List 4-year programs in Florida', 'Share of faculty with no published rank at community vs university-based programs', 'Compare clinical assistant professors to assistant professors'];
+    return ['Show me the h-index distribution of chairs versus assistant professors', 'Compare USF rank distribution and h-index to HCA Brandon', 'Median Scopus h-index by rank at academic vs corporate-affiliated programs', 'How many program directors have an h-index of at least 10?', 'Rank distribution at 3-year vs 4-year programs', 'Who is the chair at Johns Hopkins?', 'Top 10 chairs by Google Scholar h-index', 'List 4-year programs in Florida', 'Share of faculty with no published rank at community vs university-based programs', 'Compare clinical assistant professors to assistant professors'];
   }
   // ---- UI
   function askHash() { return '#/ask' + (askLastQ ? '?q=' + encodeURIComponent(askLastQ) : ''); }
