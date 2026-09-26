@@ -353,3 +353,4 @@ table.data td.w-rank .sub { max-width: 240px; }
 .ask-choices .chip-btn, .ask-follow .chip-btn, .ask-examples .chip-btn { white-space: normal; overflow-wrap: anywhere; }
 .ask-q p, .ask-text { overflow-wrap: anywhere; }
 .ask-actions .btn { white-space: normal; text-align: left; max-width: 100%; }
+.added-note { margin: 4px 0 10px; padding: 6px 10px; border-left: 3px solid var(--gold); background: var(--gold-tint); color: var(--gold-ink); font-size: 12.5px; }

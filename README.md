@@ -1,6 +1,6 @@
 # EM Faculty Census Explorer
 
-A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,905 faculty-program records, compiled in September 2026.
+A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,934 faculty-program records, compiled in September 2026 (12,905 in the paper's analysis, frozen on September 24, plus 29 fellowship directors added on September 26 from the SAEM Fellowship Directory, marked on their records).
 
 **Live site:** https://tampaerdoc.github.io/em-faculty-census/
 
@@ -15,6 +15,7 @@ A searchable web tool for a national census of emergency medicine faculty at all
 - Tick the box beside any program or person to limit the summary to your selection: one program gives its faculty, two or more programs are compared side by side. Ticked rows stay selected across searches, and a copied link keeps them.
 - Sort any column, including AAU, Vizient, and Blue Ridge.
 - Open a program to see everything recorded for it, including all of its faculty.
+- Filter people by **program director**: the residency program director designated in the census, or the director of any fellowship listed in the SAEM Fellowship Directory (entries dated 2024 or later, confirmed on institutional pages). The summary can be grouped the same way, and *Ask the data* understands questions such as *how many ultrasound fellowship directors are there* or *residency program directors versus fellowship directors*.
 - Open a faculty record to see its public professional email address where one was found (5,984 records), with its source: a faculty or professional page, or the author contact in a published article or document, whose current mailbox is not verified. CSV exports include the address and its source.
 - Export any search as a CSV, or copy a link that reopens the same search.
 - **Ask the data**: type a plain-language question and get the numbers, a figure, a table, and a link to the same selection in the explorer. For example: *show me the h-index distribution of chairs versus assistant professors*, *compare USF rank distribution and h-index to HCA Brandon*, *median Scopus h-index by rank at academic vs corporate-affiliated programs*, *how many program directors have an h-index of at least 10*, *list 4-year programs in Florida*, *who is the chair at Johns Hopkins*. It is a rule-based reader, not an AI model: it recognizes the census vocabulary (normalized ranks, described titles, leadership roles, degrees, program types, research markers, program length, accreditation era or year, states, health systems, and program names, nicknames, or ACGME IDs) and the words *versus*, *compare*, *by*, *how many*, *share*, *list*, *top*, and *who is*. Every answer says how the question was read. Nothing typed is sent anywhere; the reading and the arithmetic happen in the browser.

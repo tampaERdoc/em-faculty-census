@@ -55,6 +55,9 @@
     { id: 'chair', fig: 'Any chair title', label: 'Any chair title (incl. site and secondary chairs)', test: (p) => p.chd > 0 || has(p.tok, 'Chair') || has(p.tok, 'Interim Chair') },
     { id: 'fac', fig: 'Faculty, no leadership title', label: 'Faculty (no leadership title)', test: (p) => p.tok.every((t) => t === 'Faculty') && p.chd === 0 },
   ];
+  const dirLabel = (name) => (name === 'Residency' ? 'Emergency medicine residency' : name + ' fellowship');
+  const dirShort = (name) => (name === 'Residency' ? 'Residency program director' : name + ' fellowship director');
+  let PDIR_ORDER = [];   // director-role lookup indexes, Residency first then by count
   const DEGS = [[1, 'MD (incl. MBBS/MBChB)'], [2, 'DO'], [4, 'PhD or other research doctorate'], [8, 'Non-physician doctorate only'], [16, 'Degree not verified']];
 
   let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [];
@@ -63,7 +66,7 @@
   const PLAIN_TITLES = new Set(['instructor', 'assistant professor', 'associate professor', 'professor', 'full professor']);
   const PID = new Map(), RID = new Map();
   const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: [], pg: [],
-    rank: [], title: [], role: [], deg: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
+    rank: [], title: [], role: [], deg: [], pdir: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
   let matchP = [], matchF = [];
@@ -80,6 +83,7 @@
     $('#tagline').textContent = 'National census of ' + fmt(META.nRecords) + ' faculty-program records at all ' + META.nPrograms + ' ACGME-accredited emergency medicine residency programs · ' + META.asOf;
     $('#tagline-short').textContent = fmt(META.nRecords) + ' faculty records · ' + META.nPrograms + ' EM programs · ' + META.asOf;
     buildFilters();
+    addDirectorLex();
     bindUI();
     askInit();
     $('#loading').hidden = true; $('#toolbar').hidden = false; $('#layout').hidden = false; $('#app').setAttribute('aria-busy', 'false');
@@ -108,7 +112,9 @@
         chd: r[c.chd], cht: r[c.cht], chpos: LK.chairpos[r[c.chpos]], chtitle: r[c.chtitle], chsrc: r[c.chsrc], chev: r[c.chev], chfor: r[c.chfor],
         roster: LK.roster[r[c.roster]], profile: r[c.profile], rsrc: r[c.rsrc],
         em: r[c.eml] ? r[c.eml] + '@' + LK.emdom[r[c.emd]] : '', ems: r[c.ems] || 0, emsrc: r[c.emsrc] != null ? LK.emsrc[r[c.emsrc]] : '',
+        pdirIdx: r[c.pdir] || [], post: r[c.post] || 0,
       };
+      p.pdir = p.pdirIdx.map((k) => LK.pdir[k]);
       p.name = (p.fn + ' ' + p.ln).trim();
       p.sortName = p.ln + ' ' + p.fn;
       p.phenoIdx = PHENOS.indexOf(phenoOf(p.aau, p.viz === 1, p.brr != null));
@@ -177,6 +183,12 @@
       checks('role', [['pca', 'Academic chair', roleN('pca')], ['pch', 'Hospital chair', roleN('pch')]]) +
       checks('chair', [['N', 'Programs with no chair identified', cnt((p) => p.chairKey === 'N')]]) + '</div>');
     html.push('<div class="fgroup"><h3>Leadership role</h3>' + checks('role', ROLE_GROUPS.filter((g) => !g.dc).map((g) => [g.id, g.label, roleN(g.id)])) + '</div>');
+    const pdN = LK.pdir.map((_, k) => F.filter((f) => f.pdirIdx.indexOf(k) >= 0).length);
+    PDIR_ORDER = LK.pdir.map((_, k) => k).sort((a, b) => (LK.pdir[b] === 'Residency') - (LK.pdir[a] === 'Residency') || pdN[b] - pdN[a] || collator.compare(LK.pdir[a], LK.pdir[b]));
+    html.push('<div class="fgroup" id="fg-pdir"><h3>Program director: residency or fellowship</h3><p class="hint">The residency program director designated in the census, and fellowship directors from the SAEM Fellowship Directory (entries dated 2024 or later, confirmed on institutional pages, September 26, 2026). A person can direct more than one program.</p>' +
+      checks('pdir', PDIR_ORDER.filter((k) => pdN[k] >= 3 || LK.pdir[k] === 'Residency').map((k) => [k, dirLabel(LK.pdir[k]), pdN[k]])) +
+      (PDIR_ORDER.some((k) => pdN[k] < 3 && LK.pdir[k] !== 'Residency') ? '<details class="more-filters"><summary>Less common fellowships (' + PDIR_ORDER.filter((k) => pdN[k] < 3 && LK.pdir[k] !== 'Residency').length + ')</summary>' +
+      checks('pdir', PDIR_ORDER.filter((k) => pdN[k] < 3 && LK.pdir[k] !== 'Residency').map((k) => [k, dirLabel(LK.pdir[k]), pdN[k]])) + '</details>' : '') + '</div>');
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
@@ -255,7 +267,7 @@
       if (box) {
         const key = box.dataset.key;
         S[key] = Array.from(document.querySelectorAll('#filter-groups .checks[data-key="' + key + '"] input:checked')).map((i) => (['role', 'chair'].indexOf(key) >= 0 ? i.value : Number(i.value)));
-        if ((key === 'rank' || key === 'role') && S.view === 'programs' && e.target.checked) { S.view = 'people'; toast(box.closest('#fg-chair') ? 'Showing people: the chairs themselves' : 'Showing people: rank and role select faculty'); return changed(true); }
+        if ((key === 'rank' || key === 'role' || key === 'pdir') && S.view === 'programs' && e.target.checked) { S.view = 'people'; toast(box.closest('#fg-chair') ? 'Showing people: the chairs themselves' : (key === 'pdir' ? 'Showing people: the directors themselves' : 'Showing people: rank and role select faculty')); return changed(true); }
         return changed();
       }
       if (e.target.id === 'f-st') S.st = e.target.value;
@@ -340,7 +352,7 @@
   }
 
   /* ---------------------------------------------------------------- state <-> hash */
-  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg', 'len'];
+  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg', 'len', 'pdir'];
   const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf', 'g', 'si'];
   function listHash() {
     const u = new URLSearchParams();
@@ -360,6 +372,7 @@
     ARR.forEach((k) => { if (u.get(k)) s[k] = u.get(k).split('.').filter((x) => x !== '').map((x) => (['role', 'chair'].indexOf(k) >= 0 ? x : Number(x))).filter((x) => x === x); });
     s.dp = u.get('dp') === '-1' ? -1 : 1; s.df = u.get('df') === '-1' ? -1 : 1;
     s.role = s.role.filter((id) => ROLE_GROUPS.some((g) => g.id === id));
+    s.pdir = s.pdir.filter((k) => k >= 0 && k < LK.pdir.length);
     // links made before the chair filter selected the chairs themselves (chair=A or H)
     const oldChair = s.chair.filter((v) => v === 'A' || v === 'H');
     if (oldChair.length) { oldChair.forEach((v) => { const id = v === 'A' ? 'pca' : 'pch'; if (s.role.indexOf(id) < 0) s.role.push(id); }); s.view = 'people'; }
@@ -443,6 +456,7 @@
       if (S.rank.length && S.rank.indexOf(f.rank) < 0) continue;
       if (tset && !tset.has(f.tl)) continue;
       if (roleBits && !(f.roleMask & roleBits)) continue;
+      if (S.pdir.length && !f.pdirIdx.some((k) => S.pdir.indexOf(k) >= 0)) continue;
       if (degBits && !(f.degF & degBits)) continue;
       const hv = S.hs === 'gs' ? f.gs : f.sc, hb = S.hs === 'gs' ? f.gsb : f.scb;
       if (hmin != null && hv < hmin) continue;
@@ -476,6 +490,7 @@
     else out.push(['ttl', 'Described titles: ' + S.title.slice(0, 2).join('; ') + '; and ' + fmt(S.title.length - 2) + ' more']);
     S.role.forEach((v) => out.push(['role:' + v, (ROLE_GROUPS.find((g) => g.id === v) || { label: v }).label]));
     S.deg.forEach((v) => out.push(['deg:' + v, (DEGS.find((d) => d[0] === v) || [, v])[1]]));
+    S.pdir.forEach((v) => out.push(['pdir:' + v, 'Director: ' + dirLabel(LK.pdir[v] || String(v))]));
     if (S.hmin !== '' || S.hmax !== '') out.push(['h', (S.hs === 'gs' ? 'Scholar' : 'Scopus') + ' h ' + (S.hmin !== '' && S.hmax !== '' ? (S.hmin === S.hmax ? '= ' + S.hmin : S.hmin + '–' + S.hmax) : (S.hmin !== '' ? '≥ ' + S.hmin : '≤ ' + S.hmax))]);
     if (S.hp) out.push(['hp', S.hp === 'obs' ? 'Matched ' + (S.hs === 'gs' ? 'Scholar' : 'Scopus') + ' profile' : 'No matched ' + (S.hs === 'gs' ? 'Scholar' : 'Scopus') + ' profile']);
     return out;
@@ -730,13 +745,13 @@
       '<span class="sub">Evidence: ' + esc({ H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '—') + (f.chsrc ? ' · ' + srcHTML(f.chsrc, 'source') : '') + '</span>'
       : (f.chd === 2 ? 'Secondary chair (other site or parallel role)' + '<span class="sub">' + esc(f.cht === 'A' ? 'Academic' : 'Hospital') + ' · ' + esc(f.chpos) + '</span>' : '');
     const issue = REPO + '/issues/new?title=' + encodeURIComponent('Correction: ' + f.name + ' (' + f.rid + ')') + '&body=' + encodeURIComponent('Record ID: ' + f.rid + '\nName: ' + f.name + '\nProgram: ' + pr.map((x) => x.name).join('; ') + '\n\nWhat should change, and a source for it:\n');
-    return '<p class="d-kicker">Faculty record</p><h2 class="d-title" id="panel-title">' + esc(f.name) + '</h2><p class="d-sub">' + esc(f.cred || f.deg) + '</p>' +
+    return '<p class="d-kicker">Faculty record</p><h2 class="d-title" id="panel-title">' + esc(f.name) + '</h2><p class="d-sub">' + esc(f.cred || f.deg) + '</p>' + (f.post ? '<p class="note added-note">' + esc(META.addedNote) + '</p>' : '') +
       '<div class="pills d-pills"><span class="pill on">' + esc(RANKS[f.rank]) + '</span>' + (f.chd === 1 ? '<span class="pill gold">Department chair</span>' : '') + (has(f.tok, 'Program Director') ? '<span class="pill gold">Program director</span>' : '') + '</div>' +
       '<div class="stats three">' + stat(hVal(f.sc, f.scb), 'Scopus h-index') + stat(hVal(f.gs, f.gsb), 'Google Scholar h-index') + stat(f.brr != null ? '#' + f.brr : '—', 'Blue Ridge rank of institution (FY2025)') + '</div>' +
       '<div class="card"><h3>Appointment</h3><dl class="facts">' +
       fact('Program', pr.map((x) => '<a href="#/program/' + x.id + '">' + esc(x.name) + '</a><span class="sub">' + esc(x.city) + ', ' + esc(x.state) + '</span>').join('')) +
       fact('Institution', esc(f.inst)) + fact('Normalized rank title', esc(RANKS[f.rank])) + fact('Department/program described title', f.title && f.title !== 'No Rank' ? esc(f.title) : '<span class="dash">None published</span>') +
-      fact('Department role', esc(roleText(f))) + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
+      fact('Department role', esc(roleText(f))) + fact('Program director of', f.pdir.length ? f.pdir.map((d) => '<a href="#/people?pdir=' + LK.pdir.indexOf(d) + '">' + esc(dirLabel(d)) + '</a>').join('<br>') + '<span class="sub">' + (f.pdir.indexOf('Residency') >= 0 ? 'Residency: census designation (program website, September 2026). ' : '') + (f.pdir.some((d) => d !== 'Residency') ? 'Fellowship: SAEM Fellowship Directory, entries dated 2024 or later, confirmed on institutional pages (September 26, 2026).' : '') + '</span>' : '') + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
       '</dl></div>' + emailCard(f, issue) +
       '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + '</dl><p class="note">Values collected ' + esc(META.hDates) + '.</p></div>' +
       '<div class="card"><h3>Institutional markers</h3><dl class="facts">' + fact('AAU', f.aau ? 'Yes' + (f.aaum ? '<span class="sub">' + esc(f.aaum) + '</span>' : '') : 'No') +
@@ -767,7 +782,7 @@
   function aboutHTML() {
     return '<p class="d-kicker">About</p><h2 class="d-title" id="panel-title">About the data</h2><div class="prose">' +
       '<p>This explorer covers a national census of emergency medicine faculty at all ' + META.nPrograms + ' ACGME-accredited EM residency programs, compiled in ' + esc(META.asOf) + '. It holds ' + fmt(META.nRecords) +
-      ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice.</p>' +
+      ' faculty-program records: each is one faculty member as listed by a program, so a person listed by two programs can appear twice. The paper analyzes the ' + fmt(META.paperRecords) + ' records frozen on September 24, 2026; the ' + fmt(META.addedRecords) + ' fellowship directors added on ' + esc(META.addedDate) + ' from the SAEM Fellowship Directory are marked on their records and are not part of the paper\u2019s statistics.</p>' +
       '<h3>Searching</h3><p>Switch between <strong>Programs</strong> and <strong>People</strong>, type in the search box, and combine any filters. Normalized rank title, department/program described title, department chair, and leadership role select faculty, so choosing one lists the matching people; choosing academic or hospital chair lists the chairs themselves. Select a program to see everything recorded for it, including all of its faculty. Every result can be exported as a CSV, and <em>Copy link</em> saves the current search.</p>' +
       '<h3>Ask the data</h3><p><a href="#/ask">Ask the data</a> answers plain-language questions from the same data, entirely in your browser: for example <em>h-index distribution of chairs versus assistant professors</em>, <em>compare USF rank distribution and h-index to HCA Brandon</em>, <em>how many program directors have an h-index of at least 10</em>, or <em>who is the chair at Johns Hopkins</em>. It is a rule-based reader rather than an AI model: it recognizes the census vocabulary (normalized ranks, described titles, leadership roles, degrees, program types, markers, program length, accreditation era, states, health systems, program names and ACGME IDs) and the words <em>versus</em>, <em>compare</em>, <em>by</em>, <em>how many</em>, <em>share</em>, <em>list</em>, <em>top</em>, and <em>who is</em>. Each answer states how the question was read, shows the numbers with a figure and a table you can download, and links to the same selection in the explorer so you can check and refine it. Nothing you type is sent anywhere.</p>' +
       '<h3>Summary and figures</h3><p>Below the results, a summary gives the number of faculty (n), mean, median, and interquartile range (IQR, 25th to 75th percentile) of the Scopus h-index for the current selection, overall and by a grouping you choose (normalized rank title, department/program described title, leadership role, program type, program length, research stratum, accreditation era, or program origin), with a box-plot figure. Download the figure as PNG or SVG and the summary as CSV; <em>Copy link</em> keeps the grouping and any rows you ticked. In the Programs view the summary covers all faculty at the programs shown. Tick the box beside one or more rows to limit the summary to them: tick a program to summarize its faculty, tick two or more programs to compare them side by side (group by program), or tick people to summarize just those people. Ticked rows stay selected while you search, so you can build a comparison across several searches.</p>' +
@@ -786,6 +801,7 @@
       '<dt>ACGME accreditation</dt><dd>The effective date of the earliest record conferring accredited or pre-accredited status. Published histories begin in academic year 2000–2001, so older programs are shown as on or before 2000. It marks entry into ACGME accreditation, not when training began.</dd>' +
       '<dt>DO origin</dt><dd>The program held American Osteopathic Association accreditation before the single accreditation system (2014–2020) and obtained ACGME accreditation during it.</dd>' +
       '<dt>Ownership and staffing</dt><dd>From public ownership and staffing sources at one date; contracts change, and staffing could not be determined for some programs.</dd>' +
+      '<dt>Program director (residency or fellowship)</dt><dd><em>Emergency medicine residency</em>: the residency program director designated in the census, one per program, from the program website (September 2026) with the ACGME record deciding ties. <em>Fellowships</em>: directors listed in the SAEM Fellowship Directory with an entry dated 2024 or later, confirmed on institutional pages on September 26, 2026; fellowship names follow the directory. Directors not already in the census were added if they are emergency physicians at an accredited EM program; physicians of other specialties who direct fellowships listed under an EM department were not.</dd>' +
       '<dt>Email</dt><dd>A public professional address, collected ' + esc(META.emDates) + ', shown on the faculty record with its source: an address listed for the person on a faculty or professional page, or, where none was found, the author contact in a published article or document, whose current mailbox is not verified. Delivery was not tested. CSV exports include the address and its source.</dd></dl>' +
       '<h3>Corrections</h3><p>Every value comes from a public source, but rosters and profiles change. To report an error, open the record and choose <em>Report a correction</em>, or <a href="' + REPO + '/issues/new" target="_blank" rel="noopener">open an issue</a>.</p>' +
       '<h3>Download</h3><p><button type="button" class="btn" data-export-all-inline="people">All faculty records (CSV)</button> <button type="button" class="btn" data-export-all-inline="programs">All programs (CSV)</button></p>' +
@@ -824,7 +840,7 @@
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
   const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'], ['length', 'Program length'],
-    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin']];
+    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin'], ['pdir', 'Program director (residency/fellowship)']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
   const PAL = {
@@ -837,6 +853,7 @@
     if (S.title.length >= 2 && S.title.length <= MAXT) return 'title';
     if (S.rank.length >= 2) return 'rank';
     if (S.role.length >= 2) return 'role';
+    if (S.pdir.length >= 2) return 'pdir';
     if (S.type.length >= 2) return 'type';
     if (S.len.length >= 2) return 'length';
     if (S.era.length >= 2) return 'era';
@@ -868,6 +885,15 @@
       return ids.map((id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return { label: ROLE_GROUPS[k].label, fig: ROLE_GROUPS[k].fig, test: (f) => !!(f.roleMask & (1 << k)) }; });
     }
     if (dim === 'type') return pick(S.type, TYPES.map((_, k) => k)).map((k) => ({ label: TYPE_SHORT[k], csv: TYPES[k], test: (f) => first(f).typeIdx === k }));
+    if (dim === 'pdir') {
+      const n = new Map(); rows.forEach((f) => f.pdirIdx.forEach((k) => n.set(k, (n.get(k) || 0) + 1)));
+      let ks = S.pdir.length ? S.pdir.slice() : Array.from(n.keys());
+      ks.sort((a, b) => (LK.pdir[b] === 'Residency') - (LK.pdir[a] === 'Residency') || (n.get(b) || 0) - (n.get(a) || 0) || collator.compare(LK.pdir[a], LK.pdir[b]));
+      const total = ks.length, capped = total > MAXT; if (capped) ks = ks.slice(0, MAXT);
+      const out = ks.map((k) => ({ label: dirLabel(LK.pdir[k]), fig: LK.pdir[k] === 'Residency' ? 'Residency' : LK.pdir[k], csv: dirLabel(LK.pdir[k]), test: (f) => f.pdirIdx.indexOf(k) >= 0 }));
+      out.capped = capped ? total : 0;
+      return out;
+    }
     if (dim === 'stratum') {
       const st = (f) => (f.brr != null ? 0 : (f.aau || f.viz === 1 ? 1 : 2));
       return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k }));
@@ -1056,7 +1082,7 @@
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
       'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source',
-      'Email', 'Email source type', 'Email source'];
+      'Email', 'Email source type', 'Email source', 'Program director of (residency/fellowship)', 'Added after the paper\'s data freeze'];
     const out = rows.map((f) => {
       const pr = f.progs.map((k) => P[k]);
       return [f.rid, f.fn, f.ln, f.cred, f.deg, pr.map((x) => x.name).join('; '), pr.map((x) => x.id).join('; '), uniq(pr.map((x) => x.state)).join('; '), uniq(pr.map((x) => TYPES[x.typeIdx])).join('; '), f.inst,
@@ -1064,7 +1090,7 @@
         f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', f.aau ? 'Yes' : 'No', f.aaum, f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No'), PHENOS[f.phenoIdx],
         f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated department chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
         f.chd ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') : '', f.chd ? f.chpos : '', f.chtitle, f.chsrc, { H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '',
-        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : ''];
+        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : '', f.pdir.map(dirLabel).join('; '), f.post ? 'Yes (' + META.addedDate + ')' : ''];
     });
     download(name, H, out);
   }
@@ -1235,6 +1261,16 @@
     { re: /\b(?:faculty|people|persons?|members?|individuals?|names?|folks|staff)\b/g, t: 'pnoun' },
   ];
   ASK_LEX.forEach((L) => { L.re.lastIndex = 0; });
+  const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function addDirectorLex() {   // '<fellowship> fellowship directors', 'fellowship program directors', 'residency program directors' -> the Program Director column
+    const names = LK.pdir.map((n, k) => [n, k]).filter(([n]) => n !== 'Residency');
+    const alt = names.map(([n]) => reEsc(n.toLowerCase()).replace(/ /g, '[ -]?')).sort((a, b) => b.length - a.length).join('|');
+    const rules = [];
+    if (alt) rules.push({ re: new RegExp('\\b(' + alt + ')(?: fellowship)? (?:program )?directors?\\b', 'g'), t: 'pdir', dyn: 'name' });
+    rules.push({ re: /\bfellowship (?:program )?directors?\b|\bdirectors? of (?:a |an |any )?fellowships?\b|\bdirect(?:s|ing)? (?:a |an )?fellowship\b/g, t: 'pdir', v: 'anyfellow', label: 'Fellowship directors (SAEM Fellowship Directory, 2024 or later)', short: 'fellowship directors' });
+    rules.push({ re: /\bresidency (?:program )?directors?\b|\bdirectors? of (?:the |a |an )?(?:em |emergency medicine )?residenc(?:y|ies)\b/g, t: 'pdir', v: 'res', label: 'Residency program directors (census designation)', short: 'residency program directors' });
+    rules.forEach((r) => ASK_LEX.unshift(r));
+  }
   let askOpen = false, askLastQ = '', askLog = [], ASK_ACRO = null; const ASK_FIGS = new Map(), ASK_TABLES = new Map(); let askSeq = 0;
   const lcFirst = (s) => { if (!s) return s; const w = s.split(' ')[0]; return /[A-Z]/.test(w.slice(1)) || /^\d/.test(w) ? s : s.charAt(0).toLowerCase() + s.slice(1); }; // keeps AAU, NIH-ranked, PhD, 3-year
   function askNorm(q) {
@@ -1376,6 +1412,18 @@
   // ---- entities become filters
   function askEntity(e) {
     const L = e.L || {}, t = e.t, base = { t, label: L.label, short: L.short || L.label, pred: L.pred, pos: e.pos, text: e.text };
+    if (t === 'pdir') {
+      let ks, label, short;
+      if (L.dyn === 'name') {
+        const said = (e.m && e.m[1] ? e.m[1] : e.text).toLowerCase().replace(/[ -]+/g, ' ');
+        ks = LK.pdir.map((n, k) => [n, k]).filter(([n]) => n !== 'Residency' && n.toLowerCase().replace(/[ -]+/g, ' ') === said).map(([, k]) => k);
+        if (!ks.length) return { t: 'bad', label: 'No fellowship named “' + said + '”' };
+        label = dirShort(LK.pdir[ks[0]]) + 's'; short = label.toLowerCase();
+      } else if (L.v === 'res') { ks = LK.pdir.map((n, k) => [n, k]).filter(([n]) => n === 'Residency').map(([, k]) => k); label = L.label; short = L.short; }
+      else { ks = LK.pdir.map((n, k) => [n, k]).filter(([n]) => n !== 'Residency').map(([, k]) => k); label = L.label; short = L.short; }
+      const set = new Set(ks);
+      return Object.assign(base, { label, short, test: (f) => f.pdirIdx.some((k) => set.has(k)), params: { pdir: ks.join('.') }, key: 'pdir:' + ks.join('.'), lvl: 'p', v: ks, pred: 'are ' + short });
+    }
     if (t === 'rank') return Object.assign(base, { test: (f) => L.v.indexOf(f.rank) >= 0, params: { rank: L.v.join('.') }, key: 'rank:' + L.v.join('.'), lvl: 'p', v: L.v, pred: L.pred || 'are ' + lcFirst(L.short || L.label) });
     if (t === 'role') {
       const pred = L.pred || 'are ' + lcFirst(L.short || L.label);
@@ -1724,7 +1772,7 @@
         else if (plan.top) text = (plan.top.dir === 'desc' ? 'Highest ' : 'Lowest ') + srcName(key) + ' h-index among ' + lcFirst(c.label) + ' (n = ' + fmt(rows.length) + '): ' + shownR.slice(0, 3).map((f) => f.name + ' (' + f[key] + '; ' + (f.progs.length ? P[f.progs[0]].name : '') + ')').join('; ') + (shownR.length > 3 ? '; and ' + (shownR.length - 3) + ' more below' : '') + '.';
         else text = nUnit(rows.length, 'faculty record matches', 'faculty records match') + ' ' + lcFirst(c.label) + (rows.length <= 3 ? ': ' + rows.map((f) => f.name + (f.chd === 1 && c.filters.some((x) => x.t === 'role') ? ' (' + (f.cht === 'A' ? 'academic chair' : 'hospital chair') + '; ' + lcFirst(f.chpos) + (f.chtitle ? '; listed as “' + f.chtitle + '”' : '') + ')' : '')).join('; ') : ', sorted by ' + srcName(key) + ' h-index') + '.';
         const tid = 'tbl' + (++askSeq);
-        ASK_TABLES.set(tid, { name: 'em-census-ask-people', header: ['Record ID', 'Name', 'Credentials', 'Program(s)', 'Normalized rank', 'Described title', 'Roles', 'Scopus h', 'Google Scholar h', 'Chair designation', 'Email', 'Email source type'], rows: rows.map((f) => [f.rid, f.name, f.cred, f.progs.map((k) => P[k].name).join('; '), RANKS[f.rank], f.title, roleText(f), f.sc, f.gs, f.chd === 1 ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') + ' · ' + f.chpos : '', f.em, f.em ? META.emStatus[f.ems] : '']) });
+        ASK_TABLES.set(tid, { name: 'em-census-ask-people', header: ['Record ID', 'Name', 'Credentials', 'Program(s)', 'Normalized rank', 'Described title', 'Roles', 'Scopus h', 'Google Scholar h', 'Chair designation', 'Program director of', 'Email', 'Email source type'], rows: rows.map((f) => [f.rid, f.name, f.cred, f.progs.map((k) => P[k].name).join('; '), RANKS[f.rank], f.title, roleText(f), f.sc, f.gs, f.chd === 1 ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') + ' · ' + f.chpos : '', f.pdir.map(dirLabel).join('; '), f.em, f.em ? META.emStatus[f.ems] : '']) });
         let extraHtml = '';
         const pf = c.filters.find((x) => x.t === 'prog');
         if (pf && pf.ids.length === 1 && c.filters.some((x) => x.t === 'role' && Array.isArray(x.v) && x.v.indexOf('pca') >= 0)) { const p = P[pf.ids[0]]; if (p.chairNote) extraHtml += '<p class="note"><strong>Chair note:</strong> ' + noteHTML(p.chairNote) + '</p>'; if (p.chairSrc) extraHtml += '<p class="note">Chair source: ' + srcHTML(p.chairSrc) + (p.chairEv ? ' · evidence ' + esc(p.chairEv.toLowerCase()) : '') + '</p>'; if (p.chairSecondary) extraHtml += '<p class="note">Other chairs: ' + esc(p.chairSecondary) + '</p>'; }
@@ -1791,7 +1839,7 @@
     return out;
   }
   function askHelp(out) {
-    out.blocks.push({ html: '<p class="ask-text">Ask about the census in plain language. I recognize:</p><ul class="ask-list"><li><strong>Groups of faculty</strong>: normalized ranks (assistant professors, full professors, no published rank), leadership roles (chairs, academic or hospital chairs, program directors, vice chairs, clerkship or fellowship directors), degrees (MD, DO, PhD, physician-scientists), described titles (clinical assistant professors), and h-index thresholds (h ≥ 10, no Scopus profile).</li><li><strong>Groups of programs</strong>: program type (academic, corporate-affiliated, community, military, NIH-ranked, AAU or Vizient, university-based), 3- or 4-year, DO origin, accreditation era or year, state, health systems (HCA), and any program by name, nickname, or ACGME ID.</li><li><strong>Measures</strong>: h-index (Scopus by default, or Google Scholar), rank distribution, roles, degrees, counts and shares, top lists, and “who is the chair of …”.</li><li><strong>Comparisons and breakdowns</strong>: “X versus Y”, “compare X to Y”, “by rank”, “by program type”, “by state”.</li></ul>' });
+    out.blocks.push({ html: '<p class="ask-text">Ask about the census in plain language. I recognize:</p><ul class="ask-list"><li><strong>Groups of faculty</strong>: normalized ranks (assistant professors, full professors, no published rank), leadership roles (chairs, academic or hospital chairs, program directors, vice chairs, clerkship or fellowship directors), degrees (MD, DO, PhD, physician-scientists), described titles (clinical assistant professors), and h-index thresholds (h ≥ 10, no Scopus profile).</li><li><strong>Groups of programs</strong>: program type (academic, corporate-affiliated, community, military, NIH-ranked, AAU or Vizient, university-based), residency and fellowship directors (ultrasound fellowship directors, EMS fellowship directors), 3- or 4-year, DO origin, accreditation era or year, state, health systems (HCA), and any program by name, nickname, or ACGME ID.</li><li><strong>Measures</strong>: h-index (Scopus by default, or Google Scholar), rank distribution, roles, degrees, counts and shares, top lists, and “who is the chair of …”.</li><li><strong>Comparisons and breakdowns</strong>: “X versus Y”, “compare X to Y”, “by rank”, “by program type”, “by state”.</li></ul>' });
     out.follow = askExamples();
     return out;
   }
