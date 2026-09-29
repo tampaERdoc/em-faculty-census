@@ -29,9 +29,12 @@
 
   const RANKS = ['No rank', 'Instructor', 'Assistant professor', 'Associate professor', 'Full professor', 'Emeritus', 'Other title'];
   const PHENOS = ['AAU + Vizient + Blue Ridge', 'AAU + Blue Ridge', 'Vizient + Blue Ridge', 'Blue Ridge', 'AAU + Vizient', 'AAU', 'Vizient', 'None'];
-  const TYPES = ['Research-intensive academic: NIH-ranked (Blue Ridge)', 'Research-intensive academic: AAU or Vizient', 'University-based academic (no marker)',
+  const TYPES = ['Research-intensive academic (AAU member or NIH-ranked)', 'Vizient academic (Vizient marker only)', 'University-based academic (no marker)',
     'Corporate-affiliated (for-profit hospital or national staffing group)', 'Community-based (non-profit or public)', 'Military'];
-  const TYPE_SHORT = ['NIH-ranked academic', 'AAU/Vizient academic', 'University-based', 'Corporate-affiliated', 'Community-based', 'Military'];
+  const TYPE_SHORT = ['Research-intensive', 'Vizient academic', 'University-based', 'Corporate-affiliated', 'Community-based', 'Military'];
+  const AGROUPS = ['Academic (research-intensive, Vizient, or university-based)', 'Corporate-affiliated', 'Community-based', 'Military'];
+  const AGROUP_SHORT = ['Academic', 'Corporate-affiliated', 'Community-based', 'Military'];
+  const agroupOf = (typeIdx) => (typeIdx <= 2 ? 0 : typeIdx - 2);
   const ERAS = ['Legacy (on or before 2000)', '2001–2013', '2014–2020 (single accreditation)', '2021 or later'];
   const CHAIR_KEYS = [['A', 'Academic chair'], ['H', 'Hospital chair'], ['N', 'No chair identified']];
   const MAXG = 25; // most programs compared side by side in the summary
@@ -200,7 +203,8 @@
       checks('pdir', PDIR_ORDER.filter((k) => pdN[k] < 3 && LK.pdir[k] !== 'Residency').map((k) => [k, dirLabel(LK.pdir[k]), pdN[k]])) + '</details>' : '') + '</div>');
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
-    html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
+    html.push('<div class="fgroup"><h3>Program type</h3><p class="hint">Research-intensive (AAU member or NIH-ranked), Vizient (Vizient marker only), and university-based academic programs together form the academic group (' + fmt(cnt((p) => p.typeIdx <= 2)) + ' programs); the summary can also group by academic group.</p>' +
+      checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '<p class="fsub"><button type="button" class="link-btn" id="btn-academic-all">Select the three academic types</button></p></div>');
     const cgC = CG.map((_, k) => cnt((p) => p.cgIdx === k)), coC = CO.map((_, k) => cnt((p) => p.coIdx === k)), cdC = CD.map((_, k) => cnt((p) => p.cdIdx === k));
     const cgMain = CG.map((_, k) => k).filter((k) => cgC[k] >= 2 && CG[k] !== 'Not identified'), cgRest = CG.map((_, k) => k).filter((k) => cgMain.indexOf(k) < 0);
     const cdOwners = uniq(CD.map(cdOwner)), cdBlock = (o) => { const ks = CD.map((_, k) => k).filter((k) => cdOwner(CD[k]) === o);
@@ -356,6 +360,7 @@
     $('#export-csv').addEventListener('click', () => (S.view === 'people' ? exportPeople(matchF.map((k) => F[k]), 'em-census-people') : exportPrograms(matchP.map((k) => P[k]), 'em-census-programs')));
     $('#copy-link').addEventListener('click', () => copy(location.href.split('#')[0] + listHash(), 'Link to this search copied'));
     $('#overlay').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeOverlay(); });
+    document.addEventListener('click', (e) => { const b = e.target.closest('#btn-academic-all'); if (!b) return; e.preventDefault(); S.type = [0, 1, 2]; changed(); });
     $('#sum-group').innerHTML = GROUP_DIMS.map(([v, l]) => '<option value="' + v + '">' + esc(l) + '</option>').join('');
     $('#sum-group').addEventListener('change', (e) => { S.g = e.target.value; changed(); });
     $('#sum-index').addEventListener('change', (e) => { S.si = e.target.value; changed(); });
@@ -831,7 +836,7 @@
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
       '<dt>Blue Ridge</dt><dd>The medical school appears in the Blue Ridge Institute for Medical Research (BRIMR) fiscal-year 2025 ranking of NIH funding to departments of emergency medicine. Ranks and dollars are BRIMR’s.</dd>' +
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
-      '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate-affiliated</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-intensive academic</em>: any of the three markers, split into NIH-ranked (Blue Ridge) and AAU or Vizient. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. <em>Community-based</em>: everything else (non-profit or public).</dd>' +
+      '<dt>Program type</dt><dd>Mutually exclusive. <em>Military</em>. <em>Corporate-affiliated</em>: a for-profit or investor-owned primary hospital, or an ED staffed by a national contract-management group (private-equity-financed or physician-owned); this takes precedence over the markers. <em>Research-intensive academic</em>: the AAU marker, the Blue Ridge (NIH-ranked) marker, or both, with or without Vizient. <em>Vizient academic</em>: the Vizient marker alone. <em>University-based academic</em>: no marker, but university-sponsored with university-employed faculty. The three academic types together form the <em>academic group</em> (141 programs), available as a summary breakdown. <em>Community-based</em>: everything else (non-profit or public). Regrouped September 29, 2026 (before that date, any marker counted as research-intensive).</dd>' +
       '<dt>Department chair</dt><dd>One designated chair per program. An <em>academic chair</em> heads a medical-school EM department, division, or section (including regional campuses). A <em>hospital chair</em> heads a hospital or health-system emergency department: department chair, chief, system chair, or, when none of those was identified, the ED medical director. Where a program listed both, the academic chair was designated. Evidence is graded high, medium, or low.</dd>' +
       '<dt>Leadership role</dt><dd>Titles as listed by each program. Department chairs are selected under Department chair, defined below. <em>Program director</em> is the residency program director; <em>Student clerkship director</em> is the medical student clerkship director (associate and assistant clerkship directors are listed separately); <em>Vice chair</em> includes associate and executive vice chairs. A faculty member can hold more than one title.</dd>' +
       '<dt>Program director</dt><dd>Faculty listed with the Program Director title.</dd>' +
@@ -879,8 +884,8 @@
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
   const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'], ['length', 'Program length'],
-    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin'], ['pdir', 'Program director (residency/fellowship)'], ['cd', 'Owner–employer designation (corporate-affiliated)'], ['cg', 'ED physician employer (corporate-affiliated)'], ['co', 'For-profit hospital owner']];
-  const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
+    ['agroup', 'Academic group (academic types combined)'], ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin'], ['pdir', 'Program director (residency/fellowship)'], ['cd', 'Owner–employer designation (corporate-affiliated)'], ['cg', 'ED physician employer (corporate-affiliated)'], ['co', 'For-profit hospital owner']];
+  const STRATA = ['Research-intensive (AAU member or NIH-ranked)', 'Vizient only', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
   const PAL = {
     light: { bg: '#ffffff', text: '#1b2521', muted: '#56645e', grid: '#e3e9e6', axis: '#9aa7a1', box: '#d3e6dc', boxAll: '#b3d4c3', stroke: '#006747', med: '#00563b', whisk: '#56645e', mean: '#cfc493', meanStroke: '#6e5f1c', rule: '#c3ccc7' },
@@ -927,6 +932,7 @@
       return ids.map((id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return { label: ROLE_GROUPS[k].label, fig: ROLE_GROUPS[k].fig, test: (f) => !!(f.roleMask & (1 << k)) }; });
     }
     if (dim === 'type') return pick(S.type, TYPES.map((_, k) => k)).map((k) => ({ label: TYPE_SHORT[k], csv: TYPES[k], test: (f) => first(f).typeIdx === k }));
+    if (dim === 'agroup') return AGROUPS.map((l, k) => ({ label: AGROUP_SHORT[k], csv: l, test: (f) => agroupOf(first(f).typeIdx) === k }));
     if (dim === 'pdir') {
       const n = new Map(); rows.forEach((f) => f.pdirIdx.forEach((k) => n.set(k, (n.get(k) || 0) + 1)));
       let ks = S.pdir.length ? S.pdir.slice() : Array.from(n.keys());
@@ -937,7 +943,7 @@
       return out;
     }
     if (dim === 'stratum') {
-      const st = (f) => (f.brr != null ? 0 : (f.aau || f.viz === 1 ? 1 : 2));
+      const st = (f) => (f.brr != null || f.aau ? 0 : (f.viz === 1 ? 1 : 2));
       return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k }));
     }
     if (dim === 'cg' || dim === 'co' || dim === 'cd') {
@@ -1200,7 +1206,7 @@
     { re: /\bprogram types?\b|\btypes? of programs?\b|\bsectors?\b/g, t: 'metric', v: 'type' },
     { re: /\bchair types?\b|\btypes? of chairs?\b/g, t: 'metric', v: 'chairtype' },
     // breakdown dimension
-    { re: /\b(?:by|per|for each|stratified by|broken down by|split by|grouped by|according to) (?:normalized |academic |program |research |accreditation |department |listed |described |hospital |ed |emergency department )?(rank|ranks|title|titles|role|roles|program|programs|type|types|length|lengths|stratum|strata|marker|markers|phenotype|era|eras|origin|state|states|degree|degrees|chair type|chair types|owner[ -–]employer designations?|owner and employer|designations?|(?:physician )?employers?|contract groups?|staffing groups?|staffing compan(?:y|ies)|compan(?:y|ies)|corporate owners?|for[ -]profit owners?|parent compan(?:y|ies)|ownership|owner|staffing|institution|institutions|university|universities|band|bands)\b/g, t: 'by' },
+    { re: /\b(?:by|per|for each|stratified by|broken down by|split by|grouped by|according to) (?:normalized |academic |program |research |accreditation |department |listed |described |hospital |ed |emergency department )?(academic group|academic groups|rank|ranks|title|titles|role|roles|program|programs|type|types|length|lengths|stratum|strata|marker|markers|phenotype|era|eras|origin|state|states|degree|degrees|chair type|chair types|owner[ -–]employer designations?|owner and employer|designations?|(?:physician )?employers?|contract groups?|staffing groups?|staffing compan(?:y|ies)|compan(?:y|ies)|corporate owners?|for[ -]profit owners?|parent compan(?:y|ies)|ownership|owner|staffing|institution|institutions|university|universities|band|bands)\b/g, t: 'by' },
     // h-index thresholds
     { re: /\b(?:h[ -]?index|h|hindex|scopus h|scholar h)? ?between (\d{1,3}) and (\d{1,3})\b/g, t: 'h', op: 'between' },
     { re: /\b(?:h[ -]?index|h|hindex|scopus h|scholar h)? ?(?:>=|of at least|at least|greater than or equal to|no less than|minimum of|min of|not less than) ?(\d{1,3})\b/g, t: 'h', op: '>=' },
@@ -1258,7 +1264,8 @@
     { re: /\bnon ?physicians?(?: doctorates?| faculty)?\b|\bpharmd\b|\bpharmacists?\b|\bpsychologists?\b/g, t: 'deg', v: 8, label: 'Non-physician doctorate only', short: 'Non-physician doctorates', pred: 'hold a non-physician doctorate only' },
     { re: /\bdegree (?:not verified|unverified|unknown)\b|\bunverified degrees?\b/g, t: 'deg', v: 16, label: 'Degree not verified', short: 'Unverified degrees', pred: 'have an unverified degree' },
     // program type (program-level)
-    { re: /\bresearch[ -]?intensive (?:academic )?(?:programs?|centers?|institutions?|departments?)?\b|\bresearch[ -]?marker(?:ed)? (?:academic )?(?:programs?|centers?|institutions?|departments?)?\b|\bmarker(?:ed)? programs?\b|\bprograms? with (?:a |any )?(?:research )?markers?\b|\bany[ -]marker\b/g, t: 'type', v: [0, 1], label: 'Research-intensive academic programs (NIH-ranked, AAU, or Vizient)', short: 'research-intensive programs' },
+    { re: /\bresearch[ -]?intensive (?:academic )?(?:programs?|centers?|institutions?|departments?)?\b|\bresearch[ -]?marker(?:ed)? (?:academic )?(?:programs?|centers?|institutions?|departments?)?\b|\bmarker(?:ed)? programs?\b|\bprograms? with (?:a |any )?(?:research )?markers?\b|\bany[ -]marker\b/g, t: 'type', v: [0], label: 'Research-intensive academic programs (AAU member or NIH-ranked)', short: 'research-intensive programs' },
+    { re: /\bvizient[ -]?(?:only|alone)?[ -]?academic(?: programs?| departments?| centers?| medical centers?)?\b|\bvizient[ -]only(?: programs?| academic)?\b/g, t: 'type', v: [1], label: 'Vizient academic programs (Vizient marker only)', short: 'Vizient academic programs' },
     { re: /\baau (?:academic )?(?:programs?|residencies|centers?|departments?|hospitals?|sites?)\b/g, t: 'pmk', v: 'aau', label: 'Programs with the AAU marker', short: 'AAU programs' },
     { re: /\bvizient (?:academic )?(?:programs?|residencies|centers?|departments?|hospitals?|sites?)\b/g, t: 'pmk', v: 'viz', label: 'Programs with the Vizient marker', short: 'Vizient programs' },
     { re: /\b(?:blue ridge|brimr|nih)[ -]?(?:ranked|funded|listed)? (?:academic )?(?:programs?|residencies|departments?|centers?|sites?)\b/g, t: 'pmk', v: 'br', label: 'Programs with the Blue Ridge (NIH-ranked) marker', short: 'Blue Ridge programs' },
@@ -1693,15 +1700,16 @@
     const qs = u.toString(); return '#/' + view + (qs ? '?' + qs : '');
   }
   // ---- breakdown groups
-  const ASK_DIMS = { rank: 'rank', ranks: 'rank', title: 'title', titles: 'title', role: 'role', roles: 'role', program: 'program', programs: 'program', type: 'type', types: 'type', length: 'length', lengths: 'length', stratum: 'stratum', strata: 'stratum', marker: 'stratum', markers: 'stratum', phenotype: 'stratum', era: 'era', eras: 'era', origin: 'origin', state: 'state', states: 'state', degree: 'degree', degrees: 'degree', 'chair type': 'chairtype', 'chair types': 'chairtype', ownership: 'own', owner: 'own', staffing: 'staff', 'contract group': 'cg', 'contract groups': 'cg', 'staffing group': 'cg', 'staffing groups': 'cg', 'staffing company': 'cg', 'staffing companies': 'cg', company: 'cg', companies: 'cg', designation: 'cd', designations: 'cd', 'owner-employer designation': 'cd', 'owner–employer designation': 'cd', 'owner employer designation': 'cd', 'owner and employer': 'cd', employer: 'cg', employers: 'cg', 'physician employer': 'cg', 'corporate owner': 'co', 'corporate owners': 'co', 'for-profit owner': 'co', 'for-profit owners': 'co', 'for profit owner': 'co', 'for profit owners': 'co', 'parent company': 'co', 'parent companies': 'co', institution: 'inst', institutions: 'inst', university: 'inst', universities: 'inst', band: 'band', bands: 'band' };
-  const ASK_DIM_LABEL = { rank: 'normalized rank title', title: 'department/program described title', role: 'leadership role', program: 'program', type: 'program type', length: 'program length', stratum: 'research stratum', era: 'accreditation era', origin: 'program origin', state: 'state', degree: 'degree', chairtype: 'chair type of the program', own: 'hospital ownership', staff: 'ED staffing', cd: 'owner–employer designation', cg: 'ED physician employer', co: 'for-profit hospital owner', inst: 'institution', band: 'h-index band' };
+  const ASK_DIMS = { rank: 'rank', ranks: 'rank', title: 'title', titles: 'title', role: 'role', roles: 'role', program: 'program', programs: 'program', type: 'type', types: 'type', 'academic group': 'agroup', group: 'agroup', length: 'length', lengths: 'length', stratum: 'stratum', strata: 'stratum', marker: 'stratum', markers: 'stratum', phenotype: 'stratum', era: 'era', eras: 'era', origin: 'origin', state: 'state', states: 'state', degree: 'degree', degrees: 'degree', 'chair type': 'chairtype', 'chair types': 'chairtype', ownership: 'own', owner: 'own', staffing: 'staff', 'contract group': 'cg', 'contract groups': 'cg', 'staffing group': 'cg', 'staffing groups': 'cg', 'staffing company': 'cg', 'staffing companies': 'cg', company: 'cg', companies: 'cg', designation: 'cd', designations: 'cd', 'owner-employer designation': 'cd', 'owner–employer designation': 'cd', 'owner employer designation': 'cd', 'owner and employer': 'cd', employer: 'cg', employers: 'cg', 'physician employer': 'cg', 'corporate owner': 'co', 'corporate owners': 'co', 'for-profit owner': 'co', 'for-profit owners': 'co', 'for profit owner': 'co', 'for profit owners': 'co', 'parent company': 'co', 'parent companies': 'co', institution: 'inst', institutions: 'inst', university: 'inst', universities: 'inst', band: 'band', bands: 'band' };
+  const ASK_DIM_LABEL = { rank: 'normalized rank title', title: 'department/program described title', role: 'leadership role', program: 'program', type: 'program type', length: 'program length', agroup: 'academic group', stratum: 'research stratum', era: 'accreditation era', origin: 'program origin', state: 'state', degree: 'degree', chairtype: 'chair type of the program', own: 'hospital ownership', staff: 'ED staffing', cd: 'owner–employer designation', cg: 'ED physician employer', co: 'for-profit hospital owner', inst: 'institution', band: 'h-index band' };
   const FIRSTP = (f) => P[f.progs[0]];
   function askGroups(dim, rows) {
     if (dim === 'rank') return RANKS.map((r, k) => ({ label: r, test: (f) => f.rank === k }));
     if (dim === 'role') return ROLE_DEFAULT.map((id) => { const k = ROLE_GROUPS.findIndex((g) => g.id === id); return { label: ROLE_GROUPS[k].label, fig: ROLE_GROUPS[k].fig, test: (f) => !!(f.roleMask & (1 << k)) }; });
     if (dim === 'type') return TYPES.map((t, k) => ({ label: TYPE_SHORT[k], csv: t, test: (f) => FIRSTP(f).typeIdx === k }));
+    if (dim === 'agroup') return AGROUPS.map((l, k) => ({ label: AGROUP_SHORT[k], csv: l, test: (f) => agroupOf(FIRSTP(f).typeIdx) === k }));
     if (dim === 'length') return [3, 4].map((k) => ({ label: k + '-year programs', test: (f) => FIRSTP(f).length === k }));
-    if (dim === 'stratum') { const st = (f) => (f.brr != null ? 0 : (f.aau || f.viz === 1 ? 1 : 2)); return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k })); }
+    if (dim === 'stratum') { const st = (f) => (f.brr != null || f.aau ? 0 : (f.viz === 1 ? 1 : 2)); return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k })); }
     if (dim === 'era') return ERAS.map((t, k) => ({ label: t, test: (f) => FIRSTP(f).eraIdx === k }));
     if (dim === 'origin') { const dO = (f) => f.progs.some((pi) => P[pi].doOrigin); return [{ label: 'DO-origin program', test: (f) => dO(f) }, { label: 'Allopathic-origin program', test: (f) => !dO(f) }]; }
     if (dim === 'degree') return DEGS.map(([b, l]) => ({ label: l, test: (f) => !!(f.degF & b) }));
@@ -1926,7 +1934,7 @@
     out.measure = metrics.map((m) => ({ h: keyList.map((k) => srcName(k) + ' h-index').join(' and '), rank: 'normalized rank distribution', role: 'leadership roles', deg: 'degrees', type: 'program type', chairtype: 'chair type' }[m])).join(' · ') + (dim ? ' by ' + ASK_DIM_LABEL[dim] : '');
     if (has_('about') && single && cohorts[0].filters.length === 1 && cohorts[0].filters[0].t === 'prog' && cohorts[0].filters[0].ids.length === 1) {
       const p = P[cohorts[0].filters[0].ids[0]], ch = p.chair == null ? null : F[p.chair];
-      out.blocks.push({ text: p.name + ' (' + p.city + ', ' + p.state + '; ACGME ' + p.id + ') is a ' + (p.length ? p.length + '-year ' : '') + TYPES[p.typeIdx].replace(/ \(.*\)$/, '').toLowerCase().replace(/nih-ranked/, 'NIH-ranked').replace(/aau/, 'AAU') + ' program' + (p.pheno !== 'None' ? ' with the markers ' + p.pheno : ' with no research marker') + ', accredited ' + (p.accCensored ? 'on or before 2000' : (p.accYear || '—')) + (p.doOrigin ? ' (DO origin)' : '') + '. It lists ' + fmt(p.n) + ' faculty records; ' + pct(p.rankN[0], p.n, 0) + ' have no published rank; median Scopus h ' + fmtQ(p.medSc) + ' (IQR ' + fmtQ(p.q1Sc) + '–' + fmtQ(p.q3Sc) + '). ' + (ch ? 'Department chair: ' + ch.name + ' (' + lcFirst(p.chairType) + '; ' + lcFirst(p.chairPos) + ').' : 'No department chair identified.') + (p.pdNames.length ? ' Program director: ' + p.pdNames.join(', ') + '.' : ''), links: [{ href: '#/program/' + p.id, text: 'Open the program page' }] });
+      out.blocks.push({ text: p.name + ' (' + p.city + ', ' + p.state + '; ACGME ' + p.id + ') is a ' + (p.length ? p.length + '-year ' : '') + TYPES[p.typeIdx].toLowerCase().replace(/nih-ranked/, 'NIH-ranked').replace(/aau/, 'AAU').replace(/vizient/g, 'Vizient') + ' program' + (p.pheno !== 'None' ? ' with the markers ' + p.pheno : ' with no research marker') + ', accredited ' + (p.accCensored ? 'on or before 2000' : (p.accYear || '—')) + (p.doOrigin ? ' (DO origin)' : '') + '. It lists ' + fmt(p.n) + ' faculty records; ' + pct(p.rankN[0], p.n, 0) + ' have no published rank; median Scopus h ' + fmtQ(p.medSc) + ' (IQR ' + fmtQ(p.q1Sc) + '–' + fmtQ(p.q3Sc) + '). ' + (ch ? 'Department chair: ' + ch.name + ' (' + lcFirst(p.chairType) + '; ' + lcFirst(p.chairPos) + ').' : 'No department chair identified.') + (p.pdNames.length ? ' Program director: ' + p.pdNames.join(', ') + '.' : ''), links: [{ href: '#/program/' + p.id, text: 'Open the program page' }] });
     }
     metrics.forEach((m) => {
       if (m === 'h') keyList.forEach((key) => {
