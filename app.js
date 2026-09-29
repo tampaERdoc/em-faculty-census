@@ -60,13 +60,13 @@
   let PDIR_ORDER = [];   // director-role lookup indexes, Residency first then by count
   const DEGS = [[1, 'MD (incl. MBBS/MBChB)'], [2, 'DO'], [4, 'PhD or other research doctorate'], [8, 'Non-physician doctorate only'], [16, 'Degree not verified']];
 
-  let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [];
+  let DATA, META, LK, P = [], F = [], OWN = [], STAFF = [], STATES = [], CHAIRPOS = [], CG = [], CO = [];
   let TITLES = [], TITLE_HAY = [], TITLE_N = new Map(), TITLE_SET = new Set(), TITLE_ALT = new Map(), TITLE_OF = () => '', ttlFind = ''; // listed (non-normalized) academic titles
   const MAXT = 15; // most listed titles compared side by side in the summary
   const PLAIN_TITLES = new Set(['instructor', 'assistant professor', 'associate professor', 'professor', 'full professor']);
   const PID = new Map(), RID = new Map();
   const DEFAULT = { view: 'programs', q: '', aau: '', viz: '', br: '', pheno: [], type: [], chair: [], do: '', era: [], st: '', own: [], staff: [], len: [], pg: [],
-    rank: [], title: [], role: [], deg: [], pdir: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
+    rank: [], title: [], role: [], deg: [], pdir: [], cg: [], co: [], hs: 'sc', hmin: '', hmax: '', hp: '', sp: 'name', dp: 1, sf: 'name', df: 1, g: '', si: 'sc', pk: [], pf: [] };
   let S = JSON.parse(JSON.stringify(DEFAULT));
   let shown = PAGE, lastList = null, inApp = false, navDepth = 0, lastFocus = null;
   let matchP = [], matchF = [];
@@ -84,6 +84,7 @@
     $('#tagline-short').textContent = fmt(META.nRecords) + ' faculty records · ' + META.nPrograms + ' EM programs · ' + META.asOf;
     buildFilters();
     addDirectorLex();
+    addCorpLex();
     bindUI();
     askInit();
     $('#loading').hidden = true; $('#toolbar').hidden = false; $('#layout').hidden = false; $('#app').setAttribute('aria-busy', 'false');
@@ -95,10 +96,14 @@
     const c = {}; DATA.cols.forEach((k, i) => { c[k] = i; });
     OWN = uniq(DATA.programs.map((p) => p.ownType)).sort(collator.compare);
     STAFF = uniq(DATA.programs.map((p) => p.staffCat)).sort(collator.compare);
+    const cgN = new Map(), coN = new Map();
+    DATA.programs.forEach((p) => { if (p.cg) cgN.set(p.cg, (cgN.get(p.cg) || 0) + 1); if (p.co) coN.set(p.co, (coN.get(p.co) || 0) + 1); });
+    const byN = (m) => Array.from(m.keys()).sort((a, b) => (a === 'Not identified') - (b === 'Not identified') || m.get(b) - m.get(a) || collator.compare(a, b));
+    CG = byN(cgN); CO = byN(coN);
     STATES = uniq(DATA.programs.map((p) => p.state)).sort();
     CHAIRPOS = uniq(DATA.programs.map((p) => p.chairPos).filter(Boolean)).sort(collator.compare);
     P = DATA.programs.map((p, i) => Object.assign({}, p, {
-      i, phenoIdx: PHENOS.indexOf(p.pheno), typeIdx: TYPES.indexOf(p.type6), eraIdx: ERAS.indexOf(p.accEra), ownIdx: OWN.indexOf(p.ownType), staffIdx: STAFF.indexOf(p.staffCat),
+      i, phenoIdx: PHENOS.indexOf(p.pheno), typeIdx: TYPES.indexOf(p.type6), eraIdx: ERAS.indexOf(p.accEra), ownIdx: OWN.indexOf(p.ownType), staffIdx: STAFF.indexOf(p.staffCat), cgIdx: CG.indexOf(p.cg), coIdx: CO.indexOf(p.co),
       chairKey: p.chair == null ? 'N' : (p.chairType === 'Academic chair' ? 'A' : 'H'), cposIdx: CHAIRPOS.indexOf(p.chairPos), fac: [], pds: [],
     }));
     F = DATA.people.map((r, i) => {
@@ -149,7 +154,7 @@
       p.accSort = p.accCensored ? 1999 : (p.accYear == null ? 9999 : p.accYear);
       p.chairName = p.chair == null ? '' : F[p.chair].name;
       p.pdNames = p.pds.map((k) => F[k].name);
-      p.hay = ' ' + norm([p.name, p.sponsor, p.site, p.city, p.state, p.id, p.nrmp, p.owner, p.staffing, p.chairName].concat(p.pdNames, p.aliases || []).join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
+      p.hay = ' ' + norm([p.name, p.sponsor, p.site, p.city, p.state, p.id, p.nrmp, p.owner, p.staffing, p.cg, p.co, p.cgAsFound, p.chairName].concat(p.pdNames, p.aliases || []).join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
     });
     F.forEach((p) => {
       const pr = p.progs.map((k) => P[k]);
@@ -192,6 +197,12 @@
     html.push('<div class="fgroup"><h3>Research markers</h3><p class="hint" id="marker-hint"></p>' + tri('aau', 'AAU') + tri('viz', 'Vizient') + tri('br', 'Blue Ridge ranked') +
       '<p class="fsub">Marker phenotype</p>' + checks('pheno', PHENOS.map((ph, k) => [k, ph, cnt((p) => p.phenoIdx === k)])) + '</div>');
     html.push('<div class="fgroup"><h3>Program type</h3>' + checks('type', TYPES.map((t, k) => [k, t, cnt((p) => p.typeIdx === k)])) + '</div>');
+    const cgC = CG.map((_, k) => cnt((p) => p.cgIdx === k)), coC = CO.map((_, k) => cnt((p) => p.coIdx === k));
+    const cgMain = CG.map((_, k) => k).filter((k) => cgC[k] >= 2 && CG[k] !== 'Not identified'), cgRest = CG.map((_, k) => k).filter((k) => cgMain.indexOf(k) < 0);
+    html.push('<div class="fgroup" id="fg-corp"><h3>Corporate-affiliated: contract group and owner</h3><p class="hint">For the ' + fmt(META.cgN) + ' corporate-affiliated programs: who holds the emergency department physician contract at the primary teaching hospital, and the for-profit company that owns the hospital (verified ' + esc(META.cgDate) + ').</p>' +
+      '<p class="fsub">ED contract group</p>' + checks('cg', cgMain.map((k) => [k, CG[k], cgC[k]])) +
+      (cgRest.length ? '<details class="more-filters"><summary>Other groups (' + cgRest.length + ')</summary>' + checks('cg', cgRest.map((k) => [k, CG[k], cgC[k]])) + '</details>' : '') +
+      '<p class="fsub">For-profit hospital owner</p>' + checks('co', CO.map((_, k) => [k, CO[k], coC[k]])) + '</div>');
     html.push('<div class="fgroup"><h3>Program length</h3>' + checks('len', [[3, '3-year programs', cnt((p) => p.length === 3)], [4, '4-year programs', cnt((p) => p.length === 4)]]) + '</div>');
     html.push('<div class="fgroup"><h3>Origin and accreditation</h3>' + tri('do', 'DO origin (moved from AOA)') +
       '<p class="fsub">ACGME accreditation era</p>' + checks('era', ERAS.map((t, k) => [k, t, cnt((p) => p.eraIdx === k)])) + '</div>');
@@ -253,7 +264,10 @@
 
   function bindUI() {
     let t;
-    $('#q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; changed(); }, 140); });
+    $('#q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => {
+      const ent = corpQuery(e.target.value);
+      if (ent) { S.q = ''; S.cg = ent.key === 'cg' ? [ent.k] : []; S.co = ent.key === 'co' ? [ent.k] : []; S.view = 'programs'; e.target.value = ''; toast('Showing ' + ent.label.charAt(0).toLowerCase() + ent.label.slice(1)); return changed(true); }
+      S.q = e.target.value; changed(); }, 140); });
     document.querySelectorAll('.view-switch button').forEach((b) => b.addEventListener('click', () => { if (S.view !== b.dataset.view) { S.view = b.dataset.view; changed(true); } }));
     $('#filter-groups').addEventListener('change', (e) => {
       const box = e.target.closest('.checks[data-key]');
@@ -352,7 +366,7 @@
   }
 
   /* ---------------------------------------------------------------- state <-> hash */
-  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg', 'len', 'pdir'];
+  const ARR = ['pheno', 'type', 'chair', 'era', 'own', 'staff', 'rank', 'role', 'deg', 'len', 'pdir', 'cg', 'co'];
   const STR = ['q', 'aau', 'viz', 'br', 'do', 'st', 'hs', 'hmin', 'hmax', 'hp', 'sp', 'sf', 'g', 'si'];
   function listHash() {
     const u = new URLSearchParams();
@@ -373,6 +387,7 @@
     s.dp = u.get('dp') === '-1' ? -1 : 1; s.df = u.get('df') === '-1' ? -1 : 1;
     s.role = s.role.filter((id) => ROLE_GROUPS.some((g) => g.id === id));
     s.pdir = s.pdir.filter((k) => k >= 0 && k < LK.pdir.length);
+    s.cg = s.cg.filter((k) => k >= 0 && k < CG.length); s.co = s.co.filter((k) => k >= 0 && k < CO.length);
     // links made before the chair filter selected the chairs themselves (chair=A or H)
     const oldChair = s.chair.filter((v) => v === 'A' || v === 'H');
     if (oldChair.length) { oldChair.forEach((v) => { const id = v === 'A' ? 'pca' : 'pch'; if (s.role.indexOf(id) < 0) s.role.push(id); }); s.view = 'people'; }
@@ -420,7 +435,8 @@
   }
 
   /* ---------------------------------------------------------------- matching */
-  function tokens() { return norm(S.q).split(/[^a-z0-9]+/).filter(Boolean); }
+  const QSTOP = new Set(['all', 'every', 'list', 'show', 'me', 'programs', 'program', 'sites', 'residencies']);
+  function tokens() { return norm(S.q).split(/[^a-z0-9]+/).filter((w) => w && !QSTOP.has(w)); }
   function textOK(hay, toks) { for (let k = 0; k < toks.length; k++) if (hay.indexOf(' ' + toks[k]) < 0) return false; return true; }
   function triOK(v, want) { return want === '' || (want === '1' ? !!v : !v); }
   function progOK(p, markers) {
@@ -435,11 +451,13 @@
     if (S.st && p.state !== S.st) return false;
     if (S.own.length && S.own.indexOf(p.ownIdx) < 0) return false;
     if (S.staff.length && S.staff.indexOf(p.staffIdx) < 0) return false;
+    if (S.cg.length && S.cg.indexOf(p.cgIdx) < 0) return false;
+    if (S.co.length && S.co.indexOf(p.coIdx) < 0) return false;
     if (S.len.length && S.len.indexOf(p.length) < 0) return false;
     if (S.pg.length && S.pg.indexOf(p.id) < 0) return false;
     return true;
   }
-  function progFilterActive() { return S.type.length || S.chair.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.len.length || S.pg.length; }
+  function progFilterActive() { return S.type.length || S.chair.length || S.do || S.era.length || S.st || S.own.length || S.staff.length || S.cg.length || S.co.length || S.len.length || S.pg.length; }
   function computeMatches() {
     const toks = tokens();
     matchP = []; P.forEach((p) => { if (progOK(p, true) && textOK(p.hay, toks)) matchP.push(p.i); });
@@ -485,6 +503,8 @@
     else out.push(['pg', 'Programs: ' + S.pg.slice(0, 2).map((id) => PID.get(id).name).join('; ') + '; and ' + fmt(S.pg.length - 2) + ' more']);
     S.own.forEach((v) => out.push(['own:' + v, 'Ownership: ' + OWN[v]]));
     S.staff.forEach((v) => out.push(['staff:' + v, 'Staffing: ' + STAFF[v]]));
+    S.cg.forEach((v) => out.push(['cg:' + v, 'ED contract: ' + CG[v]]));
+    S.co.forEach((v) => out.push(['co:' + v, 'Owner: ' + CO[v]]));
     S.rank.forEach((v) => out.push(['rank:' + v, RANKS[v]]));
     if (S.title.length <= 3) S.title.forEach((t) => out.push(['ttl:' + TITLES.indexOf(t), 'Described title: ' + t]));
     else out.push(['ttl', 'Described titles: ' + S.title.slice(0, 2).join('; ') + '; and ' + fmt(S.title.length - 2) + ' more']);
@@ -612,7 +632,7 @@
   function programRow(p) {
     const acc = p.accCensored ? '≤2000' : (p.accYear == null ? '—' : p.accYear + (p.accApprox ? '*' : ''));
     return '<tr data-href="#/program/' + p.id + '" tabindex="0">' + pickCell(p.id, p.name) + '<td class="w-name"><a class="rowlink" href="#/program/' + p.id + '">' + esc(p.name) + '</a><span class="sub">' + esc(p.city) + ', ' + esc(p.state) + (p.site ? ' · ' + esc(p.site) : '') + '</span></td>' +
-      '<td class="col-opt w-type">' + esc(TYPE_SHORT[p.typeIdx]) + '</td><td class="ctr">' + yes(p.aau) + '</td><td class="ctr">' + yes(p.viz) + '</td><td class="ctr">' + brCell(p.brBest) + '</td>' +
+      '<td class="col-opt w-type">' + esc(TYPE_SHORT[p.typeIdx]) + (p.cg ? '<span class="sub">' + esc(p.cg) + '</span>' : '') + '</td><td class="ctr">' + yes(p.aau) + '</td><td class="ctr">' + yes(p.viz) + '</td><td class="ctr">' + brCell(p.brBest) + '</td>' +
       '<td class="col-opt w-chair">' + (p.chair == null ? '<span class="dash">None identified</span>' : esc(p.chairKey === 'A' ? 'Academic' : 'Hospital') + '<span class="sub">' + esc(p.chairName) + '</span>') + '</td>' +
       '<td class="num">' + fmt(p.n) + '</td><td class="num col-opt">' + pct(p.rankN[0], p.n, 0) + '</td><td class="num">' + fmtQ(p.medSc) + '</td><td class="num col-opt">' + acc + '</td><td class="ctr col-opt">' + (p.doOrigin ? '<span class="pill gold">DO</span>' : '<span class="dash">—</span>') + '</td></tr>';
   }
@@ -704,8 +724,14 @@
       '<div class="card"><h3>Leadership</h3><dl class="facts">' + fact('Department chair', chairBlock) + fact('Program director', pdBlock) +
       (p.chairSecondary ? fact('Other chairs', esc(p.chairSecondary)) : '') + (p.chairNote ? fact('Chair note', noteHTML(p.chairNote)) : '') + '</dl></div>' +
       '<div class="card"><h3>Hospital ownership and ED staffing</h3><dl class="facts">' +
-      fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '')) + fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : '')) +
-      fact('Corporate affiliation', esc(p.corpRel)) + fact('Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
+      fact('Owner', esc(p.owner) + (p.ownType ? '<span class="sub">' + esc(p.ownType) + '</span>' : '') + (p.co ? '<span class="sub"><a href="#/programs?co=' + p.coIdx + '">All ' + esc(CO[p.coIdx]) + ' programs</a></span>' : '')) +
+      (p.cg ? fact('ED contract group', '<a href="#/programs?cg=' + p.cgIdx + '">' + esc(p.cg) + '</a>' + (p.staffing && p.staffing !== p.cg ? '<span class="sub">' + esc(p.staffing) + '</span>' : '') +
+          (p.cgAsFound && p.cgAsFound !== p.cg && p.cgAsFound.length <= 80 && p.cgAsFound.indexOf(p.cg.split(' (')[0]) < 0 ? '<span class="sub">As named in the source: ' + esc(p.cgAsFound) + '</span>' : '') +
+          '<span class="sub">Verified ' + esc(META.cgDate) + ' · ' + esc(p.cgConf === 'not identified' ? 'not identified' : cap(p.cgConf) + ' confidence') + (p.cgAsOf && p.cgAsOf !== 'undated' ? ' · source dated ' + esc(p.cgAsOf) : ' · source undated') + (safeUrl(p.cgSrc) ? ' · ' + link(p.cgSrc, host(p.cgSrc)) : '') + '</span>' +
+          (p.staffing0918 ? '<span class="sub">In the paper’s classification (September 18–19, 2026): ' + esc(p.staffing0918) + '</span>' : '') +
+          (p.cgNote ? '<span class="sub">' + esc(p.cgNote) + '</span>' : ''))
+        : fact('ED staffing', esc(p.staffing) + (p.staffCat ? '<span class="sub">' + esc(p.staffCat) + '</span>' : ''))) +
+      fact('Corporate affiliation', esc(p.corpRel)) + fact(p.cg ? 'Ownership classification' : 'Classification', esc(cap(p.classConf)) + ' confidence' + (safeUrl(p.ownSrc) ? '<span class="sub">' + link(p.ownSrc, 'Ownership source (' + host(p.ownSrc) + ')') + '</span>' : '') + (!p.cg && safeUrl(p.staffSrc) ? '<span class="sub">' + link(p.staffSrc, 'Staffing source (' + host(p.staffSrc) + ')') + '</span>' : '')) +
       '</dl></div>' +
       '<div class="two"><div class="card"><h3>Normalized rank title</h3>' + bars(RANKS, p.rankN, p.n) + '</div><div class="card"><h3>Scopus h-index</h3>' + bars(HB.map((b) => b[2]), p.hBands, p.n) +
       '<p class="note">Mean ' + fmtQ(p.meanSc) + ' · ' + pct(Math.round(p.ge10 * p.n), p.n, 0) + ' with h ≥ 10 · ' + pct(Math.round(p.doShare * p.n), p.n, 0) + ' DO-only degree</p></div></div>' +
@@ -801,6 +827,7 @@
       '<dt>ACGME accreditation</dt><dd>The effective date of the earliest record conferring accredited or pre-accredited status. Published histories begin in academic year 2000–2001, so older programs are shown as on or before 2000. It marks entry into ACGME accreditation, not when training began.</dd>' +
       '<dt>DO origin</dt><dd>The program held American Osteopathic Association accreditation before the single accreditation system (2014–2020) and obtained ACGME accreditation during it.</dd>' +
       '<dt>Ownership and staffing</dt><dd>From public ownership and staffing sources at one date; contracts change, and staffing could not be determined for some programs.</dd>' +
+      '<dt>ED contract group and for-profit owner</dt><dd>For the ' + fmt(META.cgN) + ' corporate-affiliated programs, re-checked program by program on ' + esc(META.cgDate) + ': the organization that employs or contracts the emergency department attending physicians at the primary teaching hospital (a national group such as TeamHealth, Envision, US Acute Care Solutions, Vituity, ApolloMD, or SCP Health; a regional or independent group; or the hospital’s for-profit owner, such as HCA Healthcare, employing them directly), and the company that owns the hospital where it is investor-owned. Sources are staffing-company location pages and job postings, residency and hospital pages, press releases, and CMS and NPPES registry records; each program shows its source, date, and confidence. Program types remain those of the paper’s September 18–19 classification; where the contract holder differs from that classification, the program shows both.</dd>' +
       '<dt>Program director (residency or fellowship)</dt><dd><em>Emergency medicine residency</em>: the residency program director designated in the census, one per program, from the program website (September 2026) with the ACGME record deciding ties. <em>Fellowships</em>: directors listed in the SAEM Fellowship Directory with an entry dated 2024 or later, confirmed on institutional pages on September 26, 2026; fellowship names follow the directory. A fellowship director not in the directory is marked only on the department chair&rsquo;s designation, stated on the profile. Directors not already in the census were added if they are emergency physicians at an accredited EM program; physicians of other specialties who direct fellowships listed under an EM department were not.</dd>' +
       '<dt>Email</dt><dd>A public professional address, collected ' + esc(META.emDates) + ', shown on the faculty record with its source: an address listed for the person on a faculty or professional page, or, where none was found, the author contact in a published article or document, whose current mailbox is not verified. Delivery was not tested. CSV exports include the address and its source.</dd></dl>' +
       '<h3>Corrections</h3><p>Every value comes from a public source, but rosters and profiles change. To report an error, open the record and choose <em>Report a correction</em>, or <a href="' + REPO + '/issues/new" target="_blank" rel="noopener">open an issue</a>.</p>' +
@@ -840,7 +867,7 @@
 
   /* ---------------------------------------------------------------- group summary (n, mean, median, IQR) with figure */
   const GROUP_DIMS = [['', 'Auto'], ['none', 'No breakdown'], ['rank', 'Normalized rank title'], ['title', 'Department/program described title'], ['role', 'Leadership role'], ['program', 'Program'], ['type', 'Program type'], ['length', 'Program length'],
-    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin'], ['pdir', 'Program director (residency/fellowship)']];
+    ['stratum', 'Research stratum'], ['era', 'Accreditation era'], ['origin', 'Program origin'], ['pdir', 'Program director (residency/fellowship)'], ['cg', 'ED contract group (corporate-affiliated)'], ['co', 'For-profit hospital owner']];
   const STRATA = ['NIH-ranked (Blue Ridge)', 'AAU or Vizient, not NIH-ranked', 'No research marker'];
   const ROLE_DEFAULT = ['pca', 'pch', 'pd', 'apd', 'vice', 'clerk', 'fac'];
   const PAL = {
@@ -854,6 +881,8 @@
     if (S.rank.length >= 2) return 'rank';
     if (S.role.length >= 2) return 'role';
     if (S.pdir.length >= 2) return 'pdir';
+    if (S.cg.length >= 2) return 'cg';
+    if (S.co.length >= 2) return 'co';
     if (S.type.length >= 2) return 'type';
     if (S.len.length >= 2) return 'length';
     if (S.era.length >= 2) return 'era';
@@ -897,6 +926,14 @@
     if (dim === 'stratum') {
       const st = (f) => (f.brr != null ? 0 : (f.aau || f.viz === 1 ? 1 : 2));
       return STRATA.map((l, k) => ({ label: l, test: (f) => st(f) === k }));
+    }
+    if (dim === 'cg' || dim === 'co') {
+      const L2 = dim === 'cg' ? CG : CO, ix = dim === 'cg' ? 'cgIdx' : 'coIdx', sel = dim === 'cg' ? S.cg : S.co, n = new Map();
+      rows.forEach((f) => { const k = first(f)[ix]; if (k >= 0) n.set(k, (n.get(k) || 0) + 1); });
+      let ks = sel.length ? sel.slice() : Array.from(n.keys());
+      ks.sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0) || collator.compare(L2[a], L2[b]));
+      const total = ks.length, capped = total > MAXT; if (capped) ks = ks.slice(0, MAXT);
+      const out = ks.map((k) => ({ label: L2[k], test: (f) => first(f)[ix] === k })); out.capped = capped ? total : 0; return out;
     }
     if (dim === 'era') return pick(S.era, ERAS.map((_, k) => k)).map((k) => ({ label: ERAS[k], test: (f) => first(f).eraIdx === k }));
     if (dim === 'length') return pick(S.len, [3, 4]).map((k) => ({ label: k + '-year programs', fig: k + '-year', csv: k + '-year programs', test: (f) => first(f).length === k }));
@@ -1082,7 +1119,7 @@
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
       'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source',
-      'Email', 'Email source type', 'Email source', 'Program director of (residency/fellowship)', 'Added after the paper\'s data freeze'];
+      'Email', 'Email source type', 'Email source', 'Program director of (residency/fellowship)', 'Added after the paper\'s data freeze', 'Program ED contract group (corporate-affiliated)', 'Program for-profit hospital owner'];
     const out = rows.map((f) => {
       const pr = f.progs.map((k) => P[k]);
       return [f.rid, f.fn, f.ln, f.cred, f.deg, pr.map((x) => x.name).join('; '), pr.map((x) => x.id).join('; '), uniq(pr.map((x) => x.state)).join('; '), uniq(pr.map((x) => TYPES[x.typeIdx])).join('; '), f.inst,
@@ -1090,7 +1127,7 @@
         f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', f.aau ? 'Yes' : 'No', f.aaum, f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No'), PHENOS[f.phenoIdx],
         f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated department chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
         f.chd ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') : '', f.chd ? f.chpos : '', f.chtitle, f.chsrc, { H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '',
-        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : '', f.pdir.map(dirLabel).join('; '), f.post ? 'Yes (' + META.addedDate + ')' : ''];
+        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : '', f.pdir.map(dirLabel).join('; '), f.post ? 'Yes (' + META.addedDate + ')' : '', uniq(pr.map((x) => x.cg).filter(Boolean)).join('; '), uniq(pr.map((x) => x.co).filter(Boolean)).join('; ')];
     });
     download(name, H, out);
   }
@@ -1098,13 +1135,13 @@
     const H = ['ACGME program ID', 'Program', 'Sponsor', 'Primary site', 'City', 'State', 'Program length (years)', 'Program type', 'Marker phenotype', 'AAU', 'AAU university(ies)', 'Vizient', 'Blue Ridge ranked',
       'Blue Ridge best rank (FY2025)', 'Blue Ridge institution(s)', 'ACGME accreditation year', 'Accreditation date', 'Accreditation era', 'DO origin', 'Origin', 'Origin basis', 'Former name',
       'Department chair', 'Chair type', 'Chair position', 'Chair interim', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Other chairs', 'Chair note', 'Program director(s)',
-      'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate affiliation', 'Classification confidence', 'Ownership source', 'Staffing source', 'Affiliation', 'NRMP code',
+      'Hospital owner', 'Ownership type', 'ED staffing', 'Staffing category', 'Corporate affiliation', 'Classification confidence', 'Ownership source', 'Staffing source', 'ED contract group (corporate-affiliated; verified ' + META.cgDate + ')', 'Contract group type', 'For-profit hospital owner', 'Contract group confidence', 'Contract group source date', 'Contract group source', 'ED staffing in the paper classification (Sept 18-19, 2026), where different', 'Contract group note', 'Affiliation', 'NRMP code',
       'Faculty records', 'No rank (n)', 'No rank (%)', 'Instructor (n)', 'Assistant professor (n)', 'Associate professor (n)', 'Full professor (n)', 'Emeritus (n)', 'Other title (n)',
       'Median Scopus h', 'Scopus h Q1', 'Scopus h Q3', 'Mean Scopus h', 'Scopus h >= 10 (%)', 'Median Google Scholar h', 'DO-only degree share (%)'];
     const out = rows.map((p) => [p.id, p.name, p.sponsor, p.site, p.city, p.state, p.length, TYPES[p.typeIdx], p.pheno, p.aau ? 'Yes' : 'No', p.aauMembers.join('; '), p.viz ? 'Yes' : 'No', p.br ? 'Yes' : 'No',
       p.brBest, p.brList.map((b) => b.inst + ' (#' + b.rank + ')').join('; '), p.accCensored ? 'On or before 2000' : (p.accYear == null ? '' : p.accYear + (p.accApprox ? ' (approximate)' : '')), p.accDate, p.accEra,
       p.doOrigin ? 'Yes' : 'No', p.origin, p.originBasis, p.formerName, p.chairName || 'Not identified', p.chairType, p.chairPos, p.chairInterim ? 'Yes' : '', p.chairTitle, p.chairSrc, p.chairEv, p.chairSecondary, p.chairNote, p.pdNames.join('; '),
-      p.owner, p.ownType, p.staffing, p.staffCat, p.corpRel, p.classConf, p.ownSrc, p.staffSrc, p.affil, p.nrmp,
+      p.owner, p.ownType, p.staffing, p.staffCat, p.corpRel, p.classConf, p.ownSrc, p.staffSrc, p.cg, p.cgKind, p.co, p.cgConf, p.cgAsOf, p.cgSrc, p.staffing0918, p.cgNote, p.affil, p.nrmp,
       p.n, p.rankN[0], p.n ? (100 * p.rankN[0] / p.n).toFixed(1) : '', p.rankN[1], p.rankN[2], p.rankN[3], p.rankN[4], p.rankN[5], p.rankN[6],
       fmtQ(p.medSc), fmtQ(p.q1Sc), fmtQ(p.q3Sc), p.meanSc == null ? '' : p.meanSc.toFixed(1), (100 * p.ge10).toFixed(1), fmtQ(p.medGs), (100 * p.doShare).toFixed(1)]);
     download(name, H, out);
@@ -1150,7 +1187,7 @@
     { re: /\bprogram types?\b|\btypes? of programs?\b|\bsectors?\b/g, t: 'metric', v: 'type' },
     { re: /\bchair types?\b|\btypes? of chairs?\b/g, t: 'metric', v: 'chairtype' },
     // breakdown dimension
-    { re: /\b(?:by|per|for each|stratified by|broken down by|split by|grouped by|according to) (?:normalized |academic |program |research |accreditation |department |listed |described |hospital |ed |emergency department )?(rank|ranks|title|titles|role|roles|program|programs|type|types|length|lengths|stratum|strata|marker|markers|phenotype|era|eras|origin|state|states|degree|degrees|chair type|chair types|ownership|owner|staffing|institution|institutions|university|universities|band|bands)\b/g, t: 'by' },
+    { re: /\b(?:by|per|for each|stratified by|broken down by|split by|grouped by|according to) (?:normalized |academic |program |research |accreditation |department |listed |described |hospital |ed |emergency department )?(rank|ranks|title|titles|role|roles|program|programs|type|types|length|lengths|stratum|strata|marker|markers|phenotype|era|eras|origin|state|states|degree|degrees|chair type|chair types|contract groups?|staffing groups?|staffing compan(?:y|ies)|compan(?:y|ies)|corporate owners?|for[ -]profit owners?|parent compan(?:y|ies)|ownership|owner|staffing|institution|institutions|university|universities|band|bands)\b/g, t: 'by' },
     // h-index thresholds
     { re: /\b(?:h[ -]?index|h|hindex|scopus h|scholar h)? ?between (\d{1,3}) and (\d{1,3})\b/g, t: 'h', op: 'between' },
     { re: /\b(?:h[ -]?index|h|hindex|scopus h|scholar h)? ?(?:>=|of at least|at least|greater than or equal to|no less than|minimum of|min of|not less than) ?(\d{1,3})\b/g, t: 'h', op: '>=' },
@@ -1243,12 +1280,6 @@
     { re: /\b(?:public|government|county|state[ -]owned|city|municipal|public or government|publicly owned|safety[ -]net) (?:hospitals?|owned|ownership|programs?|institutions?|systems?)\b/g, t: 'own', v: 'Public / government', label: 'Programs at public or government hospitals', short: 'public hospitals' },
     { re: /\bnon[ -]?profit(?: hospitals?| owned| ownership| programs?| systems?| institutions?)?\b|\bnot[ -]for[ -]profit(?: hospitals?| programs?)?\b/g, t: 'own', v: 'Non-profit', label: 'Programs at non-profit hospitals', short: 'non-profit hospitals' },
     { re: /\bpublicly traded(?: hospitals?| companies| corporations?| owners?)?\b|\bfor[ -]profit corporations?\b|\bstock[ -]exchange listed\b/g, t: 'own', v: 'For-profit (publicly traded corporation)', label: 'Programs at hospitals owned by publicly traded corporations', short: 'publicly traded owners' },
-    { re: /\bteam ?health(?: staffed| programs?| sites?)?\b/g, t: 'staff', proper: true, v: 'TeamHealth', label: 'Programs whose ED is staffed by TeamHealth', short: 'TeamHealth-staffed programs' },
-    { re: /\benvision(?: physician services| healthcare| staffed| programs?| sites?)?\b/g, t: 'staff', proper: true, v: 'Envision', label: 'Programs whose ED is staffed by Envision Physician Services', short: 'Envision-staffed programs' },
-    { re: /\b(?:usacs|us acute care solutions|acute care solutions)(?: staffed| programs?| sites?)?\b/g, t: 'staff', proper: true, v: 'US Acute Care Solutions', label: 'Programs whose ED is staffed by US Acute Care Solutions', short: 'USACS-staffed programs' },
-    { re: /\bvituity(?: staffed| programs?| sites?)?\b/g, t: 'staff', proper: true, v: 'Vituity', label: 'Programs whose ED is staffed by Vituity', short: 'Vituity-staffed programs' },
-    { re: /\bapollo ?md(?: staffed| programs?| sites?)?\b/g, t: 'staff', proper: true, v: 'ApolloMD', label: 'Programs whose ED is staffed by ApolloMD', short: 'ApolloMD-staffed programs' },
-    { re: /\bscp health(?: staffed| programs?| sites?)?\b|\bschumacher\b/g, t: 'staff', proper: true, v: 'SCP Health', label: 'Programs whose ED is staffed by SCP Health', short: 'SCP-staffed programs' },
     { re: /\b(?:hospital|academic|hospital or academic)[ -]employed(?: faculty| physicians?| eds?| programs?| staffing)?\b|\bemployed (?:model|physicians?|faculty|staffing)\b|\bdirectly employed\b/g, t: 'staffCat', v: 'Hospital / academic employed', label: 'Programs with hospital- or academic-employed ED physicians', short: 'employed-model programs' },
     { re: /\b(?:independent|democratic|local|regional|private) (?:physician |emergency |em )?(?:groups?|practices?)(?: staffed| programs?)?\b|\bsmall[ -]group staffed\b/g, t: 'staffCat', v: 'Independent local / regional group', label: 'Programs staffed by an independent local or regional group', short: 'independent-group programs' },
     { re: /\bphysician[ -]owned(?: national)?(?: staffing)?(?: groups?| programs?| sites?)?\b/g, t: 'staffCat', v: 'Physician-owned national staffing group', label: 'Programs staffed by a physician-owned national group', short: 'physician-owned-group programs' },
@@ -1262,6 +1293,57 @@
   ];
   ASK_LEX.forEach((L) => { L.re.lastIndex = 0; });
   const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /* corporate contract groups and for-profit owners: names people type -> the verified program fields */
+  const CORP_ALIAS = {
+    'TeamHealth': ['team ?health'], 'Envision Physician Services': ['envision(?: physician services| healthcare)?', 'emcare'],
+    'US Acute Care Solutions (USACS)': ['usacs', 'u ?s acute care(?: solutions)?', 'us acute care(?: solutions)?', 'acute care solutions'],
+    'Vituity': ['vituity', 'cep america'], 'ApolloMD': ['apollo ?md', 'apollo'], 'SCP Health': ['scp(?: health)?', 'schumacher(?: clinical partners)?'],
+    'Emergency Care Partners': ['emergency care partners', 'progressive emergency physicians'],
+    'HCA Healthcare (direct employment)': ['hca[ -]direct(?: employment)?', 'hca[ -]employed'], 'Capital Medical Group (UHS affiliate)': ['capital medical group'],
+    'Community Health Systems (direct employment)': ['chs[ -]direct', 'chs[ -]employed'], 'LifePoint Health (direct employment)': ['lifepoint[ -]direct', 'lifepoint[ -]employed'],
+    'Medical Center Emergency Services (MCES)': ['mces', 'medical center emergency services'], 'CarePoint Health': ['carepoint(?: health)?'],
+    'Greater San Antonio Emergency Physicians (GSEP)': ['gsep', 'greater san antonio emergency physicians'], 'Emergent Medical Associates (EMA)': ['emergent medical associates'],
+    'Green Country Emergency Physicians (GCEP)': ['gcep', 'green country emergency physicians'], 'Renaissance Emergency Physicians': ['renaissance emergency physicians'],
+    'Emergency Physicians of Central Florida (EPCF)': ['epcf', 'emergency physicians of central florida'],
+  };
+  const CORP_BY = { 'HCA Healthcare (direct employment)': ['hca(?: healthcare)?'], 'Community Health Systems (direct employment)': ['chs', 'community health systems'], 'LifePoint Health (direct employment)': ['lifepoint(?: health)?'] };
+  const OWNER_ALIAS = {
+    'HCA Healthcare': ['hca(?: healthcare)?'], 'Tenet Healthcare': ['tenet(?: healthcare)?'], 'Universal Health Services (UHS)': ['uhs', 'universal health services'],
+    'Community Health Systems (CHS)': ['chs', 'community health systems'], 'LifePoint Health': ['lifepoint(?: health)?'], 'Ardent Health': ['ardent(?: health)?'],
+    'Prime Healthcare': ['prime healthcare'], 'HATCo (General Catalyst)': ['hatco', 'general catalyst'], 'DHR Health (physician-owned)': ['dhr(?: health)?'],
+  };
+  const cgLabel = (g) => (/\(direct employment\)$/.test(g) ? 'Programs where ' + g.replace(/ \(direct employment\)$/, '') + ' employs the ED physicians directly' : g === 'Not identified' ? 'Corporate-affiliated programs whose ED contract holder was not identified' : 'Programs whose ED physician contract is held by ' + g);
+  const cgShort = (g) => (/\(direct employment\)$/.test(g) ? g.replace(/ \(direct employment\)$/, '') + '-employed ED programs' : g + ' programs');
+  function corpQuery(q) {   // 'All TeamHealth programs', 'HCA programs', 'programs staffed by Vituity' -> {key, k, label}
+    const s = norm(q).replace(/[^a-z0-9 -]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const NOUN = '(?:programs?|residenc(?:y|ies)|sites?|hospitals?|eds?|emergency departments?)';
+    let m = s.match(new RegExp('^(?:(?:list|show)(?: me)? )?(?:all )?(?:the )?(?:' + NOUN + ' )?(?:that are |which are )?(staffed|run|contracted|covered|employed|owned|operated) (?:directly )?by (.+)$'));
+    let name, by = '';
+    if (m) { by = m[1]; name = m[2]; }
+    else {
+      m = s.match(new RegExp('^(?:(?:list|show)(?: me)? )?(?:all )?(?:the )?(.+?)(?:[ -](staffed|owned|run|operated))? ' + NOUN + '$')) || s.match(/^(?:(?:list|show)(?: me)? )?all (?:the )?(.+)$/);
+      if (!m) return null; name = m[1]; by = m[2] || '';
+    }
+    name = name.replace(/ (?:programs?|sites?)$/, '').trim();
+    const hit = (tab) => Object.keys(tab).find((k) => new RegExp('^(?:' + tab[k].join('|') + ')$').test(name));
+    const owned = by === 'owned' || by === 'operated';
+    let g = owned ? null : hit(CORP_ALIAS) || (by && !owned ? hit(CORP_BY) : null);
+    if (g && CG.indexOf(g) >= 0) return { key: 'cg', k: CG.indexOf(g), label: cgLabel(g) };
+    const o = hit(OWNER_ALIAS);
+    if (o && CO.indexOf(o) >= 0) return { key: 'co', k: CO.indexOf(o), label: 'Programs at hospitals owned by ' + o };
+    return null;
+  }
+  function addCorpLex() {   // Ask the data: contract groups and owners by name
+    const NOUN = '(?: (?:programs?|residenc(?:y|ies)|sites?|hospitals?|eds?|emergency departments?|contracts?))?';
+    const rules = [];
+    Object.keys(OWNER_ALIAS).forEach((o) => { if (CO.indexOf(o) < 0) return; const a = OWNER_ALIAS[o].join('|');
+      // owner names also begin program names ('HCA Florida ...', 'HCA Brandon'), so an owner needs context: 'all HCA', 'HCA programs/hospitals', 'HCA-owned', 'owned by HCA'
+      const ON = '(?:programs?|residenc(?:y|ies)|sites?|hospitals?|facilities|systems?|eds?)';
+      rules.push({ re: new RegExp('\\ball (?:the )?(?:' + a + ')(?:[ -](?:owned|operated|run))?(?: ' + ON + ')?\\b|\\b(?:' + a + ')[ -](?:owned|operated|run)(?: ' + ON + ')?\\b|\\b(?:' + a + ') ' + ON + '\\b|\\b(?:all (?:the )?)?(?:' + ON + ' )?(?:owned|operated) by (?:' + a + ')\\b', 'g'), t: 'co', v: o }); });
+    Object.keys(CORP_ALIAS).forEach((g) => { if (CG.indexOf(g) < 0) return; const a = CORP_ALIAS[g].join('|'), b = (CORP_BY[g] || []).concat(CORP_ALIAS[g]).join('|');
+      rules.push({ re: new RegExp('\\b(?:all (?:the )?)?(?:' + a + ')(?:[ -](?:staffed|contracted|run))?' + NOUN + '\\b|\\b(?:all (?:the )?)?(?:(?:programs?|residenc(?:y|ies)|sites?|hospitals?|eds?) )?(?:(?:that are|which are|are) )?(?:staffed|run|contracted|covered|employed|served) (?:directly )?by (?:' + b + ')\\b', 'g'), t: 'cg', v: g }); });
+    rules.forEach((r) => ASK_LEX.unshift(r));
+  }
   function addDirectorLex() {   // '<fellowship> fellowship directors', 'fellowship program directors', 'residency program directors' -> the Program Director column
     const names = LK.pdir.map((n, k) => [n, k]).filter(([n]) => n !== 'Residency');
     const alt = names.map(([n]) => reEsc(n.toLowerCase()).replace(/ /g, '[ -]?')).sort((a, b) => b.length - a.length).join('|');
@@ -1471,6 +1553,8 @@
     if (t === 'chairK') return Object.assign(base, { ptest: (p) => p.chairKey === L.v, params: null, key: 'chairK:' + L.v, lvl: 'g' });
     if (t === 'own') { const k = OWN.indexOf(L.v); return Object.assign(base, { ptest: (p) => p.ownType === L.v, params: k >= 0 ? { own: String(k) } : null, key: 'own:' + L.v, lvl: 'g' }); }
     if (t === 'staff') return Object.assign(base, { proper: !!L.proper, ptest: (p) => (p.staffing || '').indexOf(L.v) >= 0, params: null, key: 'staff:' + L.v, lvl: 'g' });
+    if (t === 'cg') { const k = CG.indexOf(L.v); if (k < 0) return null; return Object.assign(base, { label: cgLabel(L.v), short: cgShort(L.v), proper: true, ptest: (p) => p.cgIdx === k, params: { cg: String(k) }, key: 'cg:' + k, lvl: 'g' }); }
+    if (t === 'co') { const k = CO.indexOf(L.v); if (k < 0) return null; return Object.assign(base, { label: 'Programs at hospitals owned by ' + L.v, short: L.v + '-owned programs', proper: true, ptest: (p) => p.coIdx === k, params: { co: String(k) }, key: 'co:' + k, lvl: 'g' }); }
     if (t === 'staffCat') { const k = STAFF.indexOf(L.v); return Object.assign(base, { ptest: (p) => p.staffCat === L.v, params: k >= 0 ? { staff: String(k) } : null, key: 'staffCat:' + L.v, lvl: 'g' }); }
     if (t === 'state') { const code = US_STATES[e.m[1]]; if (!code) return null; return Object.assign(base, { label: 'Programs in ' + STATE_NAME[code], short: STATE_NAME[code], proper: true, ptest: (p) => p.state === code, params: { st: code }, key: 'state:' + code, lvl: 'g' }); }
     return null;
@@ -1579,8 +1663,8 @@
     const qs = u.toString(); return '#/' + view + (qs ? '?' + qs : '');
   }
   // ---- breakdown groups
-  const ASK_DIMS = { rank: 'rank', ranks: 'rank', title: 'title', titles: 'title', role: 'role', roles: 'role', program: 'program', programs: 'program', type: 'type', types: 'type', length: 'length', lengths: 'length', stratum: 'stratum', strata: 'stratum', marker: 'stratum', markers: 'stratum', phenotype: 'stratum', era: 'era', eras: 'era', origin: 'origin', state: 'state', states: 'state', degree: 'degree', degrees: 'degree', 'chair type': 'chairtype', 'chair types': 'chairtype', ownership: 'own', owner: 'own', staffing: 'staff', institution: 'inst', institutions: 'inst', university: 'inst', universities: 'inst', band: 'band', bands: 'band' };
-  const ASK_DIM_LABEL = { rank: 'normalized rank title', title: 'department/program described title', role: 'leadership role', program: 'program', type: 'program type', length: 'program length', stratum: 'research stratum', era: 'accreditation era', origin: 'program origin', state: 'state', degree: 'degree', chairtype: 'chair type of the program', own: 'hospital ownership', staff: 'ED staffing', inst: 'institution', band: 'h-index band' };
+  const ASK_DIMS = { rank: 'rank', ranks: 'rank', title: 'title', titles: 'title', role: 'role', roles: 'role', program: 'program', programs: 'program', type: 'type', types: 'type', length: 'length', lengths: 'length', stratum: 'stratum', strata: 'stratum', marker: 'stratum', markers: 'stratum', phenotype: 'stratum', era: 'era', eras: 'era', origin: 'origin', state: 'state', states: 'state', degree: 'degree', degrees: 'degree', 'chair type': 'chairtype', 'chair types': 'chairtype', ownership: 'own', owner: 'own', staffing: 'staff', 'contract group': 'cg', 'contract groups': 'cg', 'staffing group': 'cg', 'staffing groups': 'cg', 'staffing company': 'cg', 'staffing companies': 'cg', company: 'cg', companies: 'cg', 'corporate owner': 'co', 'corporate owners': 'co', 'for-profit owner': 'co', 'for-profit owners': 'co', 'for profit owner': 'co', 'for profit owners': 'co', 'parent company': 'co', 'parent companies': 'co', institution: 'inst', institutions: 'inst', university: 'inst', universities: 'inst', band: 'band', bands: 'band' };
+  const ASK_DIM_LABEL = { rank: 'normalized rank title', title: 'department/program described title', role: 'leadership role', program: 'program', type: 'program type', length: 'program length', stratum: 'research stratum', era: 'accreditation era', origin: 'program origin', state: 'state', degree: 'degree', chairtype: 'chair type of the program', own: 'hospital ownership', staff: 'ED staffing', cg: 'ED contract group', co: 'for-profit hospital owner', inst: 'institution', band: 'h-index band' };
   const FIRSTP = (f) => P[f.progs[0]];
   function askGroups(dim, rows) {
     if (dim === 'rank') return RANKS.map((r, k) => ({ label: r, test: (f) => f.rank === k }));
@@ -1594,6 +1678,8 @@
     if (dim === 'chairtype') return [['A', 'Program led by an academic chair'], ['H', 'Program led by a hospital chair'], ['N', 'Program with no chair identified']].map(([k, l]) => ({ label: l, test: (f) => FIRSTP(f).chairKey === k }));
     if (dim === 'own') return OWN.map((t, k) => ({ label: t, test: (f) => FIRSTP(f).ownIdx === k }));
     if (dim === 'staff') return STAFF.map((t, k) => ({ label: t, test: (f) => FIRSTP(f).staffIdx === k }));
+    if (dim === 'cg' || dim === 'co') { const L2 = dim === 'cg' ? CG : CO, ix = dim === 'cg' ? 'cgIdx' : 'coIdx', n = new Map(); rows.forEach((f) => { const k = FIRSTP(f)[ix]; if (k >= 0) n.set(k, (n.get(k) || 0) + 1); });
+      return Array.from(n.keys()).sort((a, b) => n.get(b) - n.get(a) || collator.compare(L2[a], L2[b])).map((k) => ({ label: L2[k], test: (f) => FIRSTP(f)[ix] === k })); }
     if (dim === 'band') return HB.map(([lo, hi, l]) => ({ label: l, test: (f) => f.sc >= lo && f.sc <= hi }));
     if (dim === 'title') {
       const tv = (f) => f.tl || 'No Rank', n = new Map(); rows.forEach((f) => n.set(tv(f), (n.get(tv(f)) || 0) + 1));
@@ -1709,7 +1795,7 @@
   }
   function programTableHTML(progs, total) {
     return '<div class="table-wrap ask-table"><table class="data"><thead><tr><th scope="col">Program</th><th scope="col" class="col-opt">Type</th><th scope="col" class="num">Length</th><th scope="col" class="col-opt">Dept. chair</th><th scope="col" class="num">Faculty</th><th scope="col" class="num">Median Scopus h</th></tr></thead><tbody>' +
-      progs.map((p) => '<tr><td class="w-name"><a class="rowlink" href="#/program/' + p.id + '">' + esc(p.name) + '</a><span class="sub">' + esc(p.city) + ', ' + esc(p.state) + '</span></td><td class="col-opt">' + esc(TYPE_SHORT[p.typeIdx]) + '</td><td class="num">' + (p.length ? p.length + ' yr' : '—') + '</td><td class="col-opt">' + (p.chair == null ? '<span class="dash">None identified</span>' : esc(p.chairName) + '<span class="sub">' + esc(p.chairType) + '</span>') + '</td><td class="num">' + fmt(p.n) + '</td><td class="num">' + fmtQ(p.medSc) + '</td></tr>').join('') +
+      progs.map((p) => '<tr><td class="w-name"><a class="rowlink" href="#/program/' + p.id + '">' + esc(p.name) + '</a><span class="sub">' + esc(p.city) + ', ' + esc(p.state) + '</span></td><td class="col-opt">' + esc(TYPE_SHORT[p.typeIdx]) + (p.cg ? '<span class="sub">' + esc(p.cg) + '</span>' : '') + '</td><td class="num">' + (p.length ? p.length + ' yr' : '—') + '</td><td class="col-opt">' + (p.chair == null ? '<span class="dash">None identified</span>' : esc(p.chairName) + '<span class="sub">' + esc(p.chairType) + '</span>') + '</td><td class="num">' + fmt(p.n) + '</td><td class="num">' + fmtQ(p.medSc) + '</td></tr>').join('') +
       '</tbody></table></div>' + (total > progs.length ? '<p class="note">Showing ' + fmt(progs.length) + ' of ' + fmt(total) + '; the CSV and the explorer link hold all of them.</p>' : '');
   }
   const openText = (cohorts, c) => (cohorts.length > 1 ? 'Open ' + clip(c.short, 40) : 'Open in explorer');
@@ -1748,12 +1834,18 @@
         const sorted = plan.top ? ranked.slice().sort((a, b) => (plan.top.dir === 'desc' ? nullLast(b[mkey], a[mkey], 1) : nullLast(a[mkey], b[mkey], 1)) || collator.compare(a.name, b.name)) : progs.slice().sort((a, b) => collator.compare(a.name, b.name));
         const shownP = plan.top ? sorted.slice(0, plan.top.n) : sorted.slice(0, ASK_LIST);
         const nfac = new Set(); progs.forEach((p) => p.fac.forEach((k) => nfac.add(k)));
-        const what = c.filters.length ? lcFirst(c.label.replace(/^Faculty (?:at|in) /, '')) : 'all programs';
+        const lab0 = c.label.replace(/^Faculty (?:at|in) /, ''), what = c.filters.length ? (c.filters[0] && c.filters[0].proper ? lab0 : lcFirst(lab0)) : 'all programs';
         let text = nUnit(progs.length, 'program matches', 'programs match') + ' (' + what + '): ' + pct(progs.length, P.length, 1) + ' of the ' + META.nPrograms + ' programs, with ' + fmt(nfac.size) + ' faculty records.';
         if (progs.length && !plan.top) { const types = TYPES.map((t, k) => progs.filter((p) => p.typeIdx === k).length); text += ' By type: ' + TYPE_SHORT.map((t, k) => (types[k] ? t + ' ' + types[k] : '')).filter(Boolean).join(', ') + '. Length: ' + progs.filter((p) => p.length === 3).length + ' three-year and ' + progs.filter((p) => p.length === 4).length + ' four-year.'; }
+        if (progs.length && !plan.top && (dim === 'cg' || dim === 'co' || progs.every((p) => p.cg))) {
+          const L2 = dim === 'co' ? CO : CG, ix = dim === 'co' ? 'coIdx' : 'cgIdx', n = new Map(); progs.forEach((p) => { if (p[ix] >= 0) n.set(p[ix], (n.get(p[ix]) || 0) + 1); });
+          const inN = Array.from(n.values()).reduce((a, b) => a + b, 0), rest = progs.length - inN;
+          if (n.size) text += ' By ' + (dim === 'co' ? 'for-profit hospital owner' : 'ED contract group (verified ' + META.cgDate + ')') + ': ' + Array.from(n.keys()).sort((a, b) => n.get(b) - n.get(a) || collator.compare(L2[a], L2[b])).map((k) => L2[k] + ' ' + n.get(k)).join(', ') +
+            (rest ? '; ' + (dim === 'co' ? 'non-profit or public hospital' : 'not corporate-affiliated') + ' ' + rest : '') + '.';
+        }
         if (plan.top && shownP.length) text += ' ' + (plan.top.dir === 'desc' ? 'Highest' : 'Lowest') + ' median ' + srcName(keyList[0]) + ' h among the ' + fmt(ranked.length) + ' with at least 10 faculty records: ' + shownP.slice(0, 3).map((p) => p.name + ' (' + fmtQ(p[mkey]) + ', n = ' + fmt(p.n) + ')').join('; ') + '.';
         const tid = 'tbl' + (++askSeq);
-        ASK_TABLES.set(tid, { name: 'em-census-ask-programs', header: ['ACGME program ID', 'Program', 'City', 'State', 'Program type', 'Length (years)', 'Department chair', 'Chair type', 'Faculty records', 'Median Scopus h', 'Median Google Scholar h'], rows: sorted.map((p) => [p.id, p.name, p.city, p.state, TYPES[p.typeIdx], p.length, p.chairName || 'Not identified', p.chairType, p.n, fmtQ(p.medSc), fmtQ(p.medGs)]) });
+        ASK_TABLES.set(tid, { name: 'em-census-ask-programs', header: ['ACGME program ID', 'Program', 'City', 'State', 'Program type', 'ED contract group (corporate-affiliated)', 'For-profit hospital owner', 'Length (years)', 'Department chair', 'Chair type', 'Faculty records', 'Median Scopus h', 'Median Google Scholar h'], rows: sorted.map((p) => [p.id, p.name, p.city, p.state, TYPES[p.typeIdx], p.cg, p.co, p.length, p.chairName || 'Not identified', p.chairType, p.n, fmtQ(p.medSc), fmtQ(p.medGs)]) });
         out.blocks.push({ text, html: has_('count') && !has_('list') && !plan.top ? '' : programTableHTML(shownP, progs.length), tid, links: [{ href: askLink(c, 'programs'), text: openText(cohorts, c) }] });
       });
       return out;
