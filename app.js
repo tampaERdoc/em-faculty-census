@@ -124,7 +124,7 @@
         chd: r[c.chd], cht: r[c.cht], chpos: LK.chairpos[r[c.chpos]], chtitle: r[c.chtitle], chsrc: r[c.chsrc], chev: r[c.chev], chfor: r[c.chfor],
         roster: LK.roster[r[c.roster]], profile: r[c.profile], rsrc: r[c.rsrc],
         em: r[c.eml] ? r[c.eml] + '@' + LK.emdom[r[c.emd]] : '', ems: r[c.ems] || 0, emsrc: r[c.emsrc] != null ? LK.emsrc[r[c.emsrc]] : '',
-        pdirIdx: r[c.pdir] || [], pdn: r[c.pdn] || '', post: r[c.post] || 0,
+        pdirIdx: r[c.pdir] || [], pdn: r[c.pdn] || '', post: r[c.post] || 0, va: r[c.va] || '',
       };
       p.pdir = p.pdirIdx.map((k) => LK.pdir[k]);
       p.name = (p.fn + ' ' + p.ln).trim();
@@ -795,7 +795,7 @@
       fact('Institution', esc(f.inst)) + fact('Normalized rank title', esc(RANKS[f.rank])) + fact('Department/program described title', f.title && f.title !== 'No Rank' ? esc(f.title) : '<span class="dash">None published</span>') +
       fact('Department role', esc(roleText(f))) + fact('Program director of', f.pdir.length ? f.pdir.map((d) => '<a href="#/people?pdir=' + LK.pdir.indexOf(d) + '">' + esc(dirLabel(d)) + '</a>').join('<br>') + '<span class="sub">' + (f.pdir.indexOf('Residency') >= 0 ? 'Residency: census designation (program website, September 2026). ' : '') + (f.pdir.some((d) => d !== 'Residency') ? (f.pdn ? esc(f.pdn) : 'Fellowship: SAEM Fellowship Directory, entries dated 2024 or later, confirmed on institutional pages (September 26, 2026).') : '') + '</span>' : '') + fact('Department chair', chairTxt) + fact('Faculty type', esc(f.ftype)) + fact('Degree', esc(f.deg)) + fact('Listed credentials', esc(f.cred)) +
       '</dl></div>' + emailCard(f, issue) +
-      '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + '</dl><p class="note">Values collected ' + esc(META.hDates) + '.</p></div>' +
+      '<div class="card"><h3>h-index</h3><dl class="facts">' + fact('Scopus', sc) + fact('Google Scholar', gs) + (f.va ? fact('Validation audit (' + esc(META.vaDate) + ')', esc(f.va)) : '') + '</dl><p class="note">Values collected ' + esc(META.hDates) + (f.va ? '; this record was re-checked in the validation audit (see About).' : '.') + '</p></div>' +
       '<div class="card"><h3>Institutional markers</h3><dl class="facts">' + fact('AAU', f.aau ? 'Yes' + (f.aaum ? '<span class="sub">' + esc(f.aaum) + '</span>' : '') : 'No') +
       fact('Vizient', f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No')) +
       fact('Blue Ridge institution', f.brr != null ? 'Rank #' + f.brr + (f.brf != null ? '<span class="sub">' + money(f.brf) + ' NIH funding to EM (FY2025)</span>' : '') : 'Not ranked') +
@@ -833,6 +833,7 @@
       '<dt>Department/program described title</dt><dd>The academic title exactly as the department or program describes it, before normalization: for example Clinical Assistant Professor, Assistant Clinical Professor, Assistant Professor of Clinical Emergency Medicine, or Health Sciences Assistant Clinical Professor. In some departments these titles mark a distinct track, with different expectations for scholarship and promotion, so this filter lets you explore them directly; type part of a title to find its variants, then tick them one by one or select all shown. Faculty with no published rank have no described title. Where the described title differs from the plain rank, it appears beneath the normalized rank in the People table.</dd>' +
       '<dt>h-index</dt><dd>Scopus and Google Scholar h-indices, collected ' + esc(META.hDates) + '. Where no profile could be matched, the value is counted as 0, the study’s convention; these values appear faint with a ° mark, and each record says why.</dd>' +
       '<dt>AAU</dt><dd>A program of an Association of American Universities member university’s own medical school, at any of its sites or campuses (both University of Florida programs, for example). Forty-two programs affiliated with a member university carry no AAU marker (senior-author reviews of September 21 and 23, 2026); the program page says so under AAU, as it does for the three medical campuses of member university systems that were counted as the member’s own school.</dd>' +
+      '<dt>Validation audit</dt><dd>' + esc(META.vaNote) + ' (' + fmt(META.vaN) + ' records audited, ' + fmt(META.vaRecovered) + ' Scopus values recovered.)</dd>' +
       '<dt>Vizient</dt><dd>Inclusion in the Vizient Academic Medical Center cohort (2025).</dd>' +
       '<dt>Blue Ridge</dt><dd>The medical school appears in the Blue Ridge Institute for Medical Research (BRIMR) fiscal-year 2025 ranking of NIH funding to departments of emergency medicine. Ranks and dollars are BRIMR’s.</dd>' +
       '<dt>Markers and phenotypes</dt><dd>A program carries a marker if any of its faculty records does; in the People view, markers describe each faculty member’s own institution. The marker phenotype is the combination of the three markers.</dd>' +
@@ -1146,7 +1147,7 @@
         f.gsid ? 'https://scholar.google.com/citations?user=' + f.gsid : '', f.aau ? 'Yes' : 'No', f.aaum, f.viz === 1 ? 'Yes' : (f.viz === 2 ? 'Unresolved' : 'No'), PHENOS[f.phenoIdx],
         f.brr, f.brf, f.brpr, f.brpf, f.chd === 1 ? 'Designated department chair' + (f.chfor.length ? ' (' + f.chfor.map((k) => P[k].name).join('; ') + ')' : '') : (f.chd === 2 ? 'Secondary chair' : ''),
         f.chd ? (f.cht === 'A' ? 'Academic chair' : 'Hospital chair') : '', f.chd ? f.chpos : '', f.chtitle, f.chsrc, { H: 'High', M: 'Medium', L: 'Low' }[f.chev] || '',
-        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : '', f.pdir.map(dirLabel).join('; '), f.post ? 'Yes (' + META.addedDate + ')' : '', uniq(pr.map((x) => x.cd).filter(Boolean)).join('; '), uniq(pr.map((x) => x.cg).filter(Boolean)).join('; '), uniq(pr.map((x) => x.co).filter(Boolean)).join('; ')];
+        has(f.tok, 'Program Director') ? 'Yes' : '', f.roster, f.profile, f.rsrc, f.em, f.em ? META.emStatus[f.ems] : '', f.em ? f.emsrc : '', f.pdir.map(dirLabel).join('; '), f.post ? 'Yes (' + META.addedDate + ')' : '', uniq(pr.map((x) => x.cd).filter(Boolean)).join('; '), uniq(pr.map((x) => x.cg).filter(Boolean)).join('; '), uniq(pr.map((x) => x.co).filter(Boolean)).join('; '), f.va];
     });
     download(name, H, out);
   }

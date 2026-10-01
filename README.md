@@ -31,6 +31,15 @@ It's a static site with no server and no dependencies: `index.html`, `style.css`
 
 Replace `census-data.json` with a newly generated file and commit it. The site redeploys automatically.
 
+## Validation audits (1 October 2026)
+
+Two audits of the extracted values were run after the paper's analytic freeze and applied to this dataset on 1 October 2026, both by an AI system (OpenAI ChatGPT GPT-6 Astra) that took part in the original collection, unblinded; independent human review is pending.
+
+- A stratified random source recheck of 300 faculty-program records (four Scopus provenance bands × seven ranks × six program types, seed `EM-census-validation-2026-09-30-v1`): rank agreed in 265 of 273 resolvable comparisons (97%); previously matched Scopus profiles agreed in 131 of 138 (95%; six of the seven differences were one citation accrued since September); but a matching profile with h > 0 was found for 62 of 150 records that had been assigned 0.
+- A targeted recheck of all 83 full-professor listings with a reported Scopus 0: 63 had a profile with h > 0, 6 displayed 0, 6 completed negative searches, 8 unresolved.
+
+Applied: 120 recovered values replaced assigned zeros; 6 recovered profiles displaying 0 are now observed zeros; 22 completed negative searches are labelled as such; 8 ranks were set to the current official source (date of change not established); 4 matched profiles found to contain another author's work carry a caution; unresolved cases keep their value with a caution. Previously matched profiles whose h rose by 1 since September were not changed (values are as displayed on the collection date). An assigned 0 means that no profile was found at collection, not that the person has no publications; the remaining assigned zeros have not been re-searched. Each audited record shows its disposition on the faculty record and in the CSV column "Validation audit (October 1, 2026)".
+
 ## Corrections
 
 Every value comes from a public source, but rosters and profiles change. To report an error, open the record on the site and choose **Report a correction**, or [open an issue](https://github.com/tampaERdoc/em-faculty-census/issues/new).
