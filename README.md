@@ -33,7 +33,7 @@ Replace `census-data.json` with a newly generated file and commit it. The site r
 
 ## Validation audits (1 October 2026)
 
-Three audits of the extracted values were run after the paper's analytic freeze and applied to this dataset on 1 October 2026, both by an AI system (OpenAI ChatGPT GPT-6 Astra) that took part in the original collection, unblinded; independent human review is pending.
+Three audits of the extracted values were run after the paper's analytic freeze and applied to this dataset on 1 October 2026, all by an AI system (OpenAI ChatGPT GPT-6 Astra) that took part in the original collection, unblinded; independent human review is pending.
 
 - A stratified random source recheck of 300 faculty-program records (four Scopus provenance bands × seven ranks × six program types, seed `EM-census-validation-2026-09-30-v1`): rank agreed in 265 of 273 resolvable comparisons (97%); previously matched Scopus profiles agreed in 131 of 138 (95%; six of the seven differences were one citation accrued since September); but a matching profile with h > 0 was found for 62 of 150 records that had been assigned 0.
 - A targeted recheck of all 83 full-professor listings with a reported Scopus 0: 63 had a profile with h > 0, 6 displayed 0, 6 completed negative searches, 8 unresolved.
