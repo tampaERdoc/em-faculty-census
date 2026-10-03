@@ -1139,7 +1139,7 @@
       'Department role(s)', 'Faculty type', 'Scopus h-index', 'Scopus basis', 'Scopus profile', 'Google Scholar h-index', 'Google Scholar basis', 'Google Scholar profile',
       'AAU', 'AAU university', 'Vizient', 'Marker phenotype (own institution)', 'Blue Ridge institution rank (FY2025)', 'Blue Ridge institution NIH funding (FY2025, $)', 'Blue Ridge PI rank (FY2025)', 'Blue Ridge PI NIH funding (FY2025, $)',
       'Department chair designation', 'Chair type', 'Chair position', 'Chair title (listed)', 'Chair source', 'Chair evidence', 'Program director', 'Faculty roster', 'Profile page', 'Rank source',
-      'Email', 'Email source type', 'Email source', 'Program director of (residency/fellowship)', 'Added after the paper\'s data freeze', 'Program owner–employer designation (corporate-affiliated)', 'Program ED physician employer (corporate-affiliated)', 'Program for-profit hospital owner'];
+      'Email', 'Email source type', 'Email source', 'Program director of (residency/fellowship)', 'Added after the paper\'s data freeze', 'Program owner–employer designation (corporate-affiliated)', 'Program ED physician employer (corporate-affiliated)', 'Program for-profit hospital owner', 'Validation audit (' + META.vaDate + ')'];
     const out = rows.map((f) => {
       const pr = f.progs.map((k) => P[k]);
       return [f.rid, f.fn, f.ln, f.cred, f.deg, pr.map((x) => x.name).join('; '), pr.map((x) => x.id).join('; '), uniq(pr.map((x) => x.state)).join('; '), uniq(pr.map((x) => TYPES[x.typeIdx])).join('; '), f.inst,
