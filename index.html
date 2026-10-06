@@ -4,21 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EM Faculty Census Explorer</title>
-<meta name="description" content="Search a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: academic rank, Scopus and Google Scholar h-index, program type, AAU, Vizient and Blue Ridge markers, chairs, and program directors. Ask questions in plain language and compare programs or groups of faculty.">
+<meta name="description" content="Explore a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: build a question from conditions such as academic rank, program type, and Scopus or Google Scholar h-index, ask in plain language, and download the results to Excel or CSV.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23006747'/%3E%3Cpath d='M18 44V20h6v24zm11 0V28h6v16zm11 0V14h6v30z' fill='%23CFC493'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2026-10-06">
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
 <header class="site-header">
   <div class="wrap header-inner">
     <div class="brand">
-      <h1><a href="#/programs" data-nav>EM Faculty Census Explorer</a></h1>
-      <p class="tagline"><span class="t-long" id="tagline">National census of emergency medicine faculty at all ACGME-accredited EM residency programs</span><span class="t-short" id="tagline-short">National EM faculty census</span></p>
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#cfc493"/><path d="M18 44V20h6v24zm11 0V28h6v16zm11 0V14h6v30z" fill="#00563b"/></svg>
+      <div class="brand-text">
+        <h1><a href="#/people" data-nav>EM Faculty Census</a></h1>
+        <p class="tagline"><span class="t-long" id="tagline">National census of emergency medicine faculty at all ACGME-accredited EM residency programs</span><span class="t-short" id="tagline-short">National EM faculty census</span></p>
+      </div>
     </div>
-    <nav class="header-links">
-      <a href="#/ask" data-nav class="ask-nav">Ask the data</a>
+    <nav class="header-links" aria-label="Main">
+      <a href="#/people" id="nav-explore" aria-current="page">Explore</a>
+      <a href="#/ask" class="ask-nav">Ask a question</a>
       <a href="#/about" data-nav>About the data</a>
     </nav>
   </div>
@@ -30,36 +34,48 @@
     <p>Loading the census…</p>
   </div>
 
-  <section class="toolbar" id="toolbar" hidden>
-    <div class="tool-row">
-      <button type="button" class="btn mode-btn" id="search-btn" title="Search programs and people by name, institution, city, or state">Search the data</button>
-      <div class="search">
-        <label for="q" class="sr-only">Search</label>
-        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>
-        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search a program, person, institution, city, or state">
+  <section class="builder" id="toolbar" aria-labelledby="b-title" hidden>
+    <div class="b-main">
+      <div class="b-titles">
+        <h2 id="b-title">Build a question</h2>
+        <p class="b-sub">Each condition narrows the list. Choose several values in one condition to match any of them.</p>
       </div>
-      <div class="view-switch" role="tablist" aria-label="What to list">
-        <button type="button" role="tab" id="tab-programs" data-view="programs" aria-selected="true">Programs <span class="count" id="count-programs"></span></button>
-        <button type="button" role="tab" id="tab-people" data-view="people" aria-selected="false">People <span class="count" id="count-people"></span></button>
+      <div class="b-line b-showline">
+        <span class="b-join" id="b-show-l">Show</span>
+        <div class="view-switch" role="tablist" aria-labelledby="b-show-l">
+          <button type="button" role="tab" id="tab-people" data-view="people" aria-selected="true">Faculty <span class="count" id="count-people"></span></button>
+          <button type="button" role="tab" id="tab-programs" data-view="programs" aria-selected="false">Programs <span class="count" id="count-programs"></span></button>
+        </div>
       </div>
-      <button type="button" class="btn btn-ghost filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false">Filters <span class="badge" id="filter-badge" hidden></span></button>
+      <div class="b-rows" id="b-rows"></div>
+      <div class="b-line b-actions">
+        <span class="b-join" aria-hidden="true"></span>
+        <div class="b-act-row">
+          <button type="button" class="b-add" id="b-add" aria-haspopup="dialog"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Add a condition</span></button>
+          <button type="button" class="link-btn b-clear" id="b-clear" hidden>Clear all</button>
+          <span class="b-spacer"></span>
+          <button type="button" class="btn btn-ghost btn-sm filters-toggle" id="filters-toggle" aria-controls="filters" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4.5 8h7M7 12h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>All filters <span class="badge" id="filter-badge" hidden></span></button>
+        </div>
+      </div>
     </div>
-    <form class="tool-row ask-row" id="ask-inline" autocomplete="off">
-      <button type="button" class="btn btn-primary mode-btn ask-btn" id="ask-btn" title="Ask a question about the data in plain language">Ask the data</button>
-      <div class="search ask-search">
-        <label for="ask-q2" class="sr-only">Ask a question about the census</label>
-        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v9h2v2.2L8.3 15H20V6H4zm3 2h10v2H7V8zm0 3h7v2H7v-2z"/></svg>
-        <input id="ask-q2" type="text" maxlength="400" spellcheck="false" placeholder="Ask a question in plain language, e.g. h-index of chairs versus assistant professors">
-      </div>
-      <button type="submit" class="btn" id="ask-inline-go">Ask</button>
-    </form>
-    <p class="ask-explainer" id="ask-explainer">Ask the data answers plain-language questions from the same census, entirely in your browser: compare groups of faculty or programs, look at h-index and rank distributions, count, list, rank the top, or ask who chairs a department. Try <button type="button" class="link-btn" data-ask-inline="Show me the h-index distribution of chairs versus assistant professors">h-index distribution of chairs versus assistant professors</button>, <button type="button" class="link-btn" data-ask-inline="Compare USF rank distribution and h-index to HCA Brandon">compare USF rank distribution and h-index to HCA Brandon</button>, or <button type="button" class="link-btn" data-ask-inline="Who is the chair at Johns Hopkins?">who is the chair at Johns Hopkins</button>. It is a rule-based reader, not an AI model: every answer shows how the question was read, with a figure, a table, and a link back to the same selection in the explorer.</p>
+    <div class="b-side">
+      <form class="b-ask" id="b-ask-form" autocomplete="off">
+        <label for="b-ask-q" class="b-ask-l">Or describe it in words</label>
+        <div class="b-ask-row">
+          <input id="b-ask-q" type="text" maxlength="400" spellcheck="false" placeholder="Describe who or what to list" aria-describedby="b-ask-hint">
+          <button type="submit" class="btn btn-primary">Build</button>
+        </div>
+        <p class="b-ask-hint" id="b-ask-hint">For example, <a href="#/people" data-fill="Associate and full professors in Florida with a Google Scholar h-index of at least 20">associate and full professors in Florida with a Google Scholar h-index of at least 20</a>. Questions that compare groups or ask for a distribution open in Ask a question.</p>
+        <p class="b-ask-note" id="b-ask-note" aria-live="polite"></p>
+      </form>
+    </div>
+    <div class="b-examples" id="b-examples"></div>
   </section>
 
   <section class="ask" id="ask" aria-labelledby="ask-title" hidden>
     <div class="ask-head">
       <div>
-        <p class="d-kicker">Ask the data</p>
+        <p class="d-kicker">Ask a question</p>
         <h2 id="ask-title">Ask a question about the census</h2>
         <p class="ask-sub">Type a question in plain language: compare groups of faculty or programs, look at h-index and rank distributions, count, list, or ask who chairs a department. Everything is computed in your browser from the same data as the explorer; nothing is sent anywhere.</p>
       </div>
@@ -76,28 +92,38 @@
   </section>
 
   <div class="layout" id="layout" hidden>
-    <aside class="filters" id="filters" aria-label="Filters">
+    <aside class="filters" id="filters" aria-label="All filters">
       <div class="filters-head">
-        <h2>Filters</h2>
+        <h2>All filters</h2>
         <button type="button" class="link-btn" id="clear-filters">Clear all</button>
-        <button type="button" class="icon-btn filters-close" id="filters-close" aria-label="Close filters">&times;</button>
+        <button type="button" class="icon-btn filters-close" id="filters-close" aria-label="Close all filters">&times;</button>
       </div>
+      <p class="filters-sub">The same conditions as the question builder, with counts. Changes apply as you make them.</p>
       <div id="filter-groups"></div>
     </aside>
 
     <section class="results" id="results" tabindex="-1" aria-label="Results">
-      <div class="results-head">
-        <div>
+      <div class="results-bar">
+        <div class="rb-main">
           <p class="result-count" id="result-count" aria-live="polite"></p>
+          <p class="result-desc" id="result-desc"></p>
           <p class="result-summary" id="result-summary"></p>
         </div>
-        <div class="results-actions">
-          <button type="button" class="btn" id="jump-summary" title="Jump to the h-index summary and figure">Summary &darr;</button>
-          <button type="button" class="btn" id="copy-link" title="Copy a link to this search">Copy link</button>
-          <button type="button" class="btn btn-primary" id="export-csv">Export CSV</button>
+        <div class="rb-tools">
+          <div class="search search-sm">
+            <label for="q" class="sr-only">Find a name, program, institution, city, or state in this list</label>
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>
+            <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Find a name, program, or place">
+          </div>
+          <div class="dl-wrap">
+            <button type="button" class="btn btn-primary" id="dl-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dl-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</button>
+            <div class="menu" id="dl-menu" role="dialog" aria-label="Download this list" hidden></div>
+          </div>
+          <button type="button" class="btn" id="copy-link" title="Copy a link that reopens this question"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 9.4a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.8.8M9.4 6.6a2.6 2.6 0 0 0-3.7 0L3.5 8.8a2.6 2.6 0 0 0 3.7 3.7l.8-.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Share link</button>
+          <button type="button" class="btn btn-ghost" id="jump-summary" title="Jump to the h-index summary and figure">Summary &darr;</button>
         </div>
       </div>
-      <div class="chips" id="chips"></div>
+      <div class="chips" id="chips" hidden></div>
       <p class="search-note" id="search-note" role="note" hidden></p>
       <div class="selbar" id="selbar" role="region" aria-label="Selected rows" hidden>
         <p class="sel-text" id="sel-text" aria-live="polite"></p>
@@ -110,7 +136,7 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <p class="empty" id="empty" hidden>No matches. Try removing a filter or shortening the search.</p>
+      <p class="empty" id="empty" hidden>No matches. Remove a condition or shorten the search.</p>
       <div class="more"><button type="button" class="btn" id="show-more" hidden>Show more</button></div>
       <p class="table-note" id="table-note"></p>
 
@@ -158,11 +184,12 @@
 </div>
 
 <footer class="site-footer">
-  <div class="wrap">
+  <div class="wrap footer-inner">
     <p id="footer-text">Data: national census of US emergency medicine faculty, September 2026. h-index values are Scopus and Google Scholar; a faculty member without a matched profile is counted as 0, as in the study.</p>
+    <p class="footer-links"><a href="#/about">About the data</a><a href="https://github.com/tampaERdoc/em-faculty-census/issues/new" target="_blank" rel="noopener">Report a correction</a></p>
   </div>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-<script src="app.js" defer></script>
+<script src="app.js?v=2026-10-06" defer></script>
 </body>
 </html>
