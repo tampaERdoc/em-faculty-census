@@ -1,6 +1,6 @@
 # EM Faculty Census Explorer
 
-A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,911 faculty-program records, compiled in September 2026 (12,882 in the paper's analysis, which was frozen on September 24 with 12,905 records before 23 listings were removed on October 2–3: fifteen that are not faculty, one administrative-support listing and fourteen fellows or students listed with the faculty; one listing of a physician who died in 2023; and seven duplicate listings of the same person at the same institution; plus 29 fellowship directors added on September 26 from the SAEM Fellowship Directory, marked on their records).
+A searchable web tool for a national census of emergency medicine faculty at all 304 ACGME-accredited EM residency programs: 12,913 faculty-program records, compiled in September 2026 (12,882 in the paper's analysis, which was frozen on September 24 with 12,905 records before 23 listings were removed on October 2–3: fifteen that are not faculty, one administrative-support listing and fourteen fellows or students listed with the faculty; one listing of a physician who died in 2023; and seven duplicate listings of the same person at the same institution; plus 29 fellowship directors added on September 26 from the SAEM Fellowship Directory and two department chairs added on November 24, both marked on their records).
 
 **Live site:** https://tampaerdoc.github.io/em-faculty-census/
 
